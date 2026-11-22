@@ -8,3 +8,5 @@ Set the dinosaur quantity on a custom rule or Kit entry to the number of support
 The existing eight-command limit applies to the whole gift. Each dinosaur takes one slot, and each item action takes one slot regardless of its quantity. RCON send results still require in-game confirmation.
 
 Run the offline engine tests with `node --test ./*.test.mjs` in a shell that expands the glob, or `node --test "**/*.test.mjs"` on Node.js 22 or newer.
+
+The Custom Gift Rules panel shows sent versus total commands for the active gift, along with the next spawn's cooldown. Its last-delivery summary distinguishes completed sends, canceled work, and an RCON error. Completed sends still require in-game confirmation.

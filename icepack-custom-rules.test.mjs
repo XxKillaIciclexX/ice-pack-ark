@@ -48,6 +48,10 @@ test('spaces spawns while preserving the order of Kit actions', async () => {
   assert.deepEqual(calls.map(call => call.at), [100_000, 106_000, 106_000, 112_000]);
   assert.match(calls[2].command, /^GiveItemToPlayer/);
   assert.equal(lane.history[0].status, 'sent-unverified');
+  assert.equal(lane.state().activeDelivery, null);
+  assert.deepEqual(lane.state().lastDelivery, {
+    ruleId: 'rose', gift: 'Rose', sent: 4, total: 4, outcome: 'sent-unverified',
+  });
 });
 
 test('Stop cancels a pending spawn during the cooldown wait', async () => {
@@ -60,11 +64,21 @@ test('Stop cancels a pending spawn during the cooldown wait', async () => {
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 1);
   assert.equal(lane.inflight, true);
+  const delivery = lane.state().activeDelivery;
+  assert.equal(delivery.sent, 1);
+  assert.equal(delivery.total, 4);
+  assert.equal(delivery.phase, 'cooldown');
+  assert.ok(delivery.cooldownMs > 0 && delivery.cooldownMs <= 6000);
   lane.stop();
+  assert.equal(lane.state().activeDelivery.phase, 'stopping');
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 1);
   assert.equal(lane.inflight, false);
   assert.deepEqual(lane.history, []);
+  assert.equal(lane.state().activeDelivery, null);
+  assert.deepEqual(lane.state().lastDelivery, {
+    ruleId: 'rose', gift: 'Rose', sent: 1, total: 4, outcome: 'stopped',
+  });
 });
 
 test('Preview lists all dinosaur commands without sending or waiting', () => {
@@ -76,4 +90,25 @@ test('Preview lists all dinosaur commands without sending or waiting', () => {
   lane.handle(gift);
   assert.equal(lane.history[0].status, 'preview');
   assert.equal(lane.history[0].commands.length, 4);
+});
+
+test('a failed send reports partial progress and cancels the remaining commands', async () => {
+  let attempts = 0;
+  let now = 100_000;
+  const lane = new CustomRulesLane({
+    send: async () => { if (++attempts === 2) throw Error('Connection lost'); },
+    now: () => now,
+    wait: async elapsed => { now += elapsed; },
+  });
+  lane.saved = multiple;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  lane.handle(gift);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 2);
+  assert.equal(lane.state().mode, 'off');
+  assert.equal(lane.state().activeDelivery, null);
+  assert.deepEqual(lane.state().lastDelivery, {
+    ruleId: 'rose', gift: 'Rose', sent: 1, total: 4, outcome: 'rcon-error',
+  });
 });

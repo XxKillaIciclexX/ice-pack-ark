@@ -60,6 +60,8 @@ export class CustomRulesLane {
     this.wait=wait;
     this.nextSpawnAt=0;
     this.spawnWait=new AbortController();
+    this.activeDelivery=null;
+    this.lastDelivery=null;
   }
   reload(){if(this.mode==='live'||this.inflight)throw Error('Disable live rules before reloading');const saved=loadSavedRules(this.sourceDir);this.saved=saved;this.log(`Custom rules loaded: ${saved.config.rules.length} rules, ${saved.config.kits.length} Kits`);return this.state();}
   configure({playerId}){if(this.mode==='live'||this.inflight)throw Error('Stop live rules before changing player');if(!validPlayerId(playerId))throw Error('Invalid Specimen Implant ID');this.playerId=String(playerId).trim();return this.state();}
@@ -76,11 +78,24 @@ export class CustomRulesLane {
   clearQueue(){
     this.generation++;
     this.queue.length=0;
+    if(this.activeDelivery)this.activeDelivery.phase='stopping';
     this.spawnWait.abort();
     this.spawnWait=new AbortController();
   }
   stop(){this.clearQueue();this.mode='off';this.log('CUSTOM RULES STOP: queued work cleared; in-flight RCON cannot be recalled');return this.state();}
-  state(){return {mode:this.mode,loaded:!!this.saved,ruleCount:this.saved?.config.rules.length??0,kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse()};}
+  state(){
+    const delivery=this.activeDelivery;
+    const activeDelivery=delivery && {
+      ...delivery,
+      cooldownMs:delivery.phase==='cooldown' ? Math.max(0,this.nextSpawnAt-this.now()) : 0,
+    };
+    return {
+      mode:this.mode,loaded:!!this.saved,ruleCount:this.saved?.config.rules.length??0,
+      kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,
+      queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse(),
+      activeDelivery,lastDelivery:this.lastDelivery && {...this.lastDelivery},
+    };
+  }
   handle(g){
     if(this.mode==='off'||!this.saved)return false;
     const plan=planGift(this.saved.config,this.saved.catalog,g);
@@ -103,29 +118,42 @@ export class CustomRulesLane {
     if(this.inflight)return;this.inflight=true;
     try{while(this.mode==='live'&&this.queue.length){
       const job=this.queue.shift();if(job.generation!==this.generation||this.now()-job.at>30000)continue;
+      const delivery={ruleId:job.ruleId,gift:job.g.name||job.ruleId,sent:0,total:job.commands.length,phase:'sending'};
+      this.activeDelivery=delivery;
+      let outcome='stopped';
       try{
         for(const cmd of job.commands){
           if(this.mode!=='live'||job.generation!==this.generation)break;
           const spawn=isSpawnCommand(cmd);
           const remaining=this.nextSpawnAt-this.now();
           if(spawn&&remaining>0){
+            delivery.phase='cooldown';
             await this.wait(remaining,undefined,{signal:this.spawnWait.signal});
             if(this.mode!=='live'||job.generation!==this.generation)break;
           }
+          delivery.phase='sending';
           try{
             await this.send(cmd);
+            delivery.sent++;
           }finally{
             if(spawn)this.nextSpawnAt=this.now()+SPAWN_INTERVAL_MS;
           }
           this.log('Custom RCON sent (not gameplay-confirmed): '+job.ruleId+' -> '+cmd);
         }
-        if(this.mode==='live'&&job.generation===this.generation)this.record('sent-unverified',job.g,job.ruleId,job.commands);
+        if(delivery.sent===delivery.total){
+          outcome='sent-unverified';
+          if(job.generation===this.generation)this.record(outcome,job.g,job.ruleId,job.commands);
+        }
       }catch(e){
         if(e.name==='AbortError'&&job.generation!==this.generation)continue;
-        this.record('rcon-error',job.g,job.ruleId,job.commands);
+        outcome='rcon-error';
+        this.record(outcome,job.g,job.ruleId,job.commands);
         this.log('Custom RCON error, no retry: '+e.message);
         this.stop();
         break;
+      }finally{
+        this.lastDelivery={ruleId:delivery.ruleId,gift:delivery.gift,sent:delivery.sent,total:delivery.total,outcome};
+        this.activeDelivery=null;
       }
     }}finally{this.inflight=false;}
   }
