@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import {validateConfiguration, validateArkCatalog, planGift} from './icepack-config-engine.mjs';
 import {buildIcePackSpawnCommand} from './icepack-spawn-rcon.mjs';
 
@@ -10,6 +11,9 @@ const SUPPORTED_ITEMS = new Map([
  ['Stone','PrimalItemResource_Stone'],
 ]);
 const MAX_JOB_COMMANDS=8, MAX_QUEUE=8, GLOBAL_COOLDOWN_MS=15000;
+// Leave a margin for the ASA mod's five-second spawn cooldown.
+const SPAWN_INTERVAL_MS=6000;
+const isSpawnCommand=command=>command.startsWith('ScriptCommand IcePackSpawn,');
 const validPlayerId = id => /^\d{1,10}$/.test(String(id ?? '')) && Number(id)>0 && Number(id)<=4294967295;
 
 export function loadSavedRules(dir) {
@@ -34,8 +38,8 @@ export function buildPlanCommands(plan,catalog,enabledPacks,playerId) {
     if(a.type==='dinosaur') {
       if(a.status!=='wild')throw Error('Tamed dinosaurs require a newer mod version; no substitution to wild');
       if(!SUPPORTED_DINOS.has(a.creatureId))throw Error(`Creature ${a.creatureId} not implemented in deployed mod`);
-      if(a.quantity!==1)throw Error('Current mod cooldown supports only one dinosaur per gift');
-      if(cmds.some(cmd=>cmd.startsWith('ScriptCommand IcePackSpawn,')))throw Error('Current mod cooldown supports one dinosaur per gift, including Kits');
+      if(!Number.isSafeInteger(a.quantity)||a.quantity<1)throw Error('Dinosaur quantity must be a positive integer');
+      if(cmds.length+a.quantity>MAX_JOB_COMMANDS)throw Error('Gift exceeds the limit of 8 commands, including Kit entries');
       for(let i=0;i<a.quantity;i++)cmds.push(buildIcePackSpawnCommand({creature:a.creatureId,level:a.level,playerId}));
     } else if(a.type==='item') {
       const itemClass=SUPPORTED_ITEMS.get(a.itemId);
@@ -43,16 +47,19 @@ export function buildPlanCommands(plan,catalog,enabledPacks,playerId) {
       if(a.quantity>1000)throw Error('Maximum 1000 item units per gift during test');
       cmds.push(`GiveItemToPlayer ${playerId} "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/${itemClass}.${itemClass}'" ${a.quantity} 0 0`);
     } else throw Error('Unsupported action');
-    if(cmds.length>MAX_JOB_COMMANDS)throw Error('Kit too large for live execution (8 commands max)');
+    if(cmds.length>MAX_JOB_COMMANDS)throw Error('Gift exceeds the limit of 8 commands, including Kit entries');
   }
   if(!cmds.length)throw Error('Rule produces no commands');
   return cmds;
 }
 export class CustomRulesLane {
-  constructor({send,log=()=>{},now=()=>Date.now(),sourceDir}={}){
+  constructor({send,log=()=>{},now=()=>Date.now(),sourceDir,wait=delay}={}){
     if(typeof send!=='function')throw Error('Missing RCON sender');
     this.send=send;this.log=log;this.now=now;this.sourceDir=sourceDir;
     this.mode='off';this.playerId='';this.saved=null;this.queue=[];this.inflight=false;this.generation=0;this.lastGlobal=0;this.lastRules=new Map();this.history=[];
+    this.wait=wait;
+    this.nextSpawnAt=0;
+    this.spawnWait=new AbortController();
   }
   reload(){if(this.mode==='live'||this.inflight)throw Error('Disable live rules before reloading');const saved=loadSavedRules(this.sourceDir);this.saved=saved;this.log(`Custom rules loaded: ${saved.config.rules.length} rules, ${saved.config.kits.length} Kits`);return this.state();}
   configure({playerId}){if(this.mode==='live'||this.inflight)throw Error('Stop live rules before changing player');if(!validPlayerId(playerId))throw Error('Invalid Specimen Implant ID');this.playerId=String(playerId).trim();return this.state();}
@@ -63,10 +70,16 @@ export class CustomRulesLane {
       if(!this.saved)throw Error('Load Kit Editor configuration first');
       if(!validPlayerId(this.playerId))throw Error('Configure Specimen Implant ID');
     }
-    if(mode!=='live'||this.mode!=='live'){this.queue.length=0;this.generation++;}
+    if(mode!=='live'||this.mode!=='live')this.clearQueue();
     this.mode=mode;this.log('Custom rules mode: '+mode);return this.state();
   }
-  stop(){this.generation++;this.queue.length=0;this.mode='off';this.log('CUSTOM RULES STOP: queued work cleared; in-flight RCON cannot be recalled');return this.state();}
+  clearQueue(){
+    this.generation++;
+    this.queue.length=0;
+    this.spawnWait.abort();
+    this.spawnWait=new AbortController();
+  }
+  stop(){this.clearQueue();this.mode='off';this.log('CUSTOM RULES STOP: queued work cleared; in-flight RCON cannot be recalled');return this.state();}
   state(){return {mode:this.mode,loaded:!!this.saved,ruleCount:this.saved?.config.rules.length??0,kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse()};}
   handle(g){
     if(this.mode==='off'||!this.saved)return false;
@@ -93,11 +106,27 @@ export class CustomRulesLane {
       try{
         for(const cmd of job.commands){
           if(this.mode!=='live'||job.generation!==this.generation)break;
-          await this.send(cmd);
+          const spawn=isSpawnCommand(cmd);
+          const remaining=this.nextSpawnAt-this.now();
+          if(spawn&&remaining>0){
+            await this.wait(remaining,undefined,{signal:this.spawnWait.signal});
+            if(this.mode!=='live'||job.generation!==this.generation)break;
+          }
+          try{
+            await this.send(cmd);
+          }finally{
+            if(spawn)this.nextSpawnAt=this.now()+SPAWN_INTERVAL_MS;
+          }
           this.log('Custom RCON sent (not gameplay-confirmed): '+job.ruleId+' -> '+cmd);
         }
         if(this.mode==='live'&&job.generation===this.generation)this.record('sent-unverified',job.g,job.ruleId,job.commands);
-      }catch(e){this.record('rcon-error',job.g,job.ruleId,job.commands);this.log('Custom RCON error, no retry: '+e.message);this.stop();break;}
+      }catch(e){
+        if(e.name==='AbortError'&&job.generation!==this.generation)continue;
+        this.record('rcon-error',job.g,job.ruleId,job.commands);
+        this.log('Custom RCON error, no retry: '+e.message);
+        this.stop();
+        break;
+      }
     }}finally{this.inflight=false;}
   }
   simulate(gift){if(this.mode!=='preview')throw Error('Enable Preview first');if(!this.saved)throw Error('Load Kit Editor configuration first');this.handle(gift);return this.state();}

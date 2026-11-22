@@ -13,3 +13,67 @@ test('invalid player ID rejected',()=>assert.throws(()=>buildPlanCommands({actio
 test('global cooldown prevents second accepted gift',async()=>{let n=0;let now=100000;const l=new CustomRulesLane({send:async()=>{n++},now:()=>now});l.saved=saved;l.configure({playerId:'537815134'});l.setMode('live','ENABLE LIVE CUSTOM RULES');l.handle({id:'5655',name:'Rose'});await new Promise(r=>setImmediate(r));assert.equal(n,2);now+=1000;l.handle({id:'5655',name:'Rose'});await new Promise(r=>setImmediate(r));assert.equal(n,2);});
 test('stops after in-flight command, never starts second',async()=>{let release;const calls=[];const l=new CustomRulesLane({send:async cmd=>{calls.push(cmd);await new Promise(r=>{release=r;});}});l.saved=saved;l.configure({playerId:'537815134'});l.setMode('live','ENABLE LIVE CUSTOM RULES');l.handle({id:'5655',name:'Rose'});await new Promise(r=>setImmediate(r));l.stop();release();await new Promise(r=>setImmediate(r));assert.equal(calls.length,1);assert.equal(l.mode,'off');});
 test('no queue on unsupported kit action',()=>{const l=new CustomRulesLane({send:async()=>{throw Error('Should not send')}});l.saved={...saved,config:{...kit,kits:[{...kit.kits[0],entries:[{...kit.kits[0].entries[1],status:'tamed'}]}]}};l.configure({playerId:'537815134'});l.setMode('live','ENABLE LIVE CUSTOM RULES');assert.equal(l.handle({id:'5655',name:'Rose'}),true);assert.equal(l.queue.length,0);assert.equal(l.history[0].status,'blocked');});
+
+const dinosaur = kit.kits[0].entries[1];
+const gift = { id: '5655', name: 'Rose' };
+const multiple = {
+  ...saved,
+  config: {
+    ...kit,
+    kits: [{ ...kit.kits[0], entries: [{ ...dinosaur, quantity: 2 }, kit.kits[0].entries[0], dinosaur] }],
+  },
+};
+
+test('expands dinosaur quantities and separate Kit entries within the eight-command limit', () => {
+  const commands = buildPlanCommands({ actions: multiple.config.kits[0].entries }, base, saved.enabledPacks, '1');
+  assert.equal(commands.length, 4);
+  assert.equal(commands.filter(command => command.startsWith('ScriptCommand IcePackSpawn,')).length, 3);
+  assert.equal(buildPlanCommands({ actions: [{ ...dinosaur, quantity: 8 }] }, base, saved.enabledPacks, '1').length, 8);
+  assert.throws(() => buildPlanCommands({ actions: [{ ...dinosaur, quantity: 8 }, dinosaur] }, base, saved.enabledPacks, '1'), /limit of 8/);
+});
+
+test('spaces spawns while preserving the order of Kit actions', async () => {
+  const calls = [];
+  let now = 100_000;
+  const lane = new CustomRulesLane({
+    send: async command => { calls.push({ command, at: now }); },
+    now: () => now,
+    wait: async elapsed => { now += elapsed; },
+  });
+  lane.saved = multiple;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  lane.handle(gift);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls.map(call => call.at), [100_000, 106_000, 106_000, 112_000]);
+  assert.match(calls[2].command, /^GiveItemToPlayer/);
+  assert.equal(lane.history[0].status, 'sent-unverified');
+});
+
+test('Stop cancels a pending spawn during the cooldown wait', async () => {
+  const calls = [];
+  const lane = new CustomRulesLane({ send: async command => { calls.push(command); } });
+  lane.saved = multiple;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  lane.handle(gift);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 1);
+  assert.equal(lane.inflight, true);
+  lane.stop();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 1);
+  assert.equal(lane.inflight, false);
+  assert.deepEqual(lane.history, []);
+});
+
+test('Preview lists all dinosaur commands without sending or waiting', () => {
+  const unexpected = () => assert.fail('Preview must not send or wait');
+  const lane = new CustomRulesLane({ send: unexpected, wait: unexpected });
+  lane.saved = multiple;
+  lane.configure({ playerId: '1' });
+  lane.setMode('preview');
+  lane.handle(gift);
+  assert.equal(lane.history[0].status, 'preview');
+  assert.equal(lane.history[0].commands.length, 4);
+});
