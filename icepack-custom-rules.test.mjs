@@ -112,3 +112,70 @@ test('a failed send reports partial progress and cancels the remaining commands'
     ruleId: 'rose', gift: 'Rose', sent: 1, total: 4, outcome: 'rcon-error',
   });
 });
+
+test('records a queued gift that expires without sending any commands for it', async () => {
+  let now = 100_000;
+  let complete;
+  let sends = 0;
+  const lane = new CustomRulesLane({
+    now: () => now,
+    send: async () => { if (++sends === 1) await new Promise(resolve => { complete = resolve; }); },
+  });
+  lane.saved = saved;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  lane.handle(gift);
+  now += 31_000;
+  lane.handle(gift);
+  assert.equal(lane.state().queued, 1);
+  now += 31_000;
+  complete();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sends, 2);
+  assert.deepEqual(lane.state().deliveryHistory.map(({ outcome, sent }) => [outcome, sent]), [
+    ['expired-in-queue', 0], ['sent-unverified', 2],
+  ]);
+  assert.equal(lane.state().lastDelivery.outcome, 'sent-unverified');
+});
+
+test('Stop records the discarded queued gift and partial active delivery separately', async () => {
+  let now = 100_000;
+  let complete;
+  const lane = new CustomRulesLane({
+    now: () => now,
+    send: () => new Promise(resolve => { complete = resolve; }),
+  });
+  lane.saved = saved;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  lane.handle(gift);
+  now += 31_000;
+  lane.handle(gift);
+  lane.stop();
+  assert.equal(lane.state().deliveryHistory[0].outcome, 'canceled-in-queue');
+  complete();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(lane.state().deliveryHistory.map(({ outcome, sent }) => [outcome, sent]), [
+    ['stopped', 1], ['canceled-in-queue', 0],
+  ]);
+});
+
+test('retains only 20 outcomes and excludes Preview from delivery history', async () => {
+  let now = 100_000;
+  const lane = new CustomRulesLane({ now: () => now, send: async () => {} });
+  lane.saved = saved;
+  lane.configure({ playerId: '1' });
+  lane.setMode('live', 'ENABLE LIVE CUSTOM RULES');
+  for (let i = 0; i < 21; i++) {
+    lane.handle({ ...gift, name: `Rose ${i}` });
+    await new Promise(resolve => setImmediate(resolve));
+    now += 31_000;
+  }
+  lane.setMode('preview');
+  lane.handle(gift);
+  const history = lane.state().deliveryHistory;
+  assert.equal(history.length, 20);
+  assert.equal(history[0].gift, 'Rose 20');
+  assert.equal(history.at(-1).gift, 'Rose 1');
+  assert.ok(history.every(row => row.outcome === 'sent-unverified' && !('commands' in row)));
+});

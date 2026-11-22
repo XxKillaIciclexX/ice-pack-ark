@@ -11,6 +11,7 @@ const SUPPORTED_ITEMS = new Map([
  ['Stone','PrimalItemResource_Stone'],
 ]);
 const MAX_JOB_COMMANDS=8, MAX_QUEUE=8, GLOBAL_COOLDOWN_MS=15000;
+const MAX_DELIVERY_HISTORY=20;
 // Leave a margin for the ASA mod's five-second spawn cooldown.
 const SPAWN_INTERVAL_MS=6000;
 const isSpawnCommand=command=>command.startsWith('ScriptCommand IcePackSpawn,');
@@ -62,6 +63,7 @@ export class CustomRulesLane {
     this.spawnWait=new AbortController();
     this.activeDelivery=null;
     this.lastDelivery=null;
+    this.deliveryHistory=[];
   }
   reload(){if(this.mode==='live'||this.inflight)throw Error('Disable live rules before reloading');const saved=loadSavedRules(this.sourceDir);this.saved=saved;this.log(`Custom rules loaded: ${saved.config.rules.length} rules, ${saved.config.kits.length} Kits`);return this.state();}
   configure({playerId}){if(this.mode==='live'||this.inflight)throw Error('Stop live rules before changing player');if(!validPlayerId(playerId))throw Error('Invalid Specimen Implant ID');this.playerId=String(playerId).trim();return this.state();}
@@ -77,6 +79,7 @@ export class CustomRulesLane {
   }
   clearQueue(){
     this.generation++;
+    for(const job of this.queue)this.recordDelivery(job,0,'canceled-in-queue');
     this.queue.length=0;
     if(this.activeDelivery)this.activeDelivery.phase='stopping';
     this.spawnWait.abort();
@@ -94,6 +97,7 @@ export class CustomRulesLane {
       kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,
       queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse(),
       activeDelivery,lastDelivery:this.lastDelivery && {...this.lastDelivery},
+      deliveryHistory:this.deliveryHistory.map(row=>({...row})).reverse(),
     };
   }
   handle(g){
@@ -114,10 +118,21 @@ export class CustomRulesLane {
     void this.drain();return true;
   }
   record(status,g,ruleId,commands){this.history.push({status,gift:g.name,ruleId,commands,at:this.now()});if(this.history.length>30)this.history.shift();}
+  recordDelivery(job,sent,outcome){
+    const delivery={ruleId:job.ruleId,gift:job.g.name||job.ruleId,sent,total:job.commands.length,outcome};
+    this.deliveryHistory.push({...delivery,at:this.now()});
+    if(this.deliveryHistory.length>MAX_DELIVERY_HISTORY)this.deliveryHistory.shift();
+    return delivery;
+  }
   async drain(){
     if(this.inflight)return;this.inflight=true;
     try{while(this.mode==='live'&&this.queue.length){
-      const job=this.queue.shift();if(job.generation!==this.generation||this.now()-job.at>30000)continue;
+      const job=this.queue.shift();
+      if(job.generation!==this.generation)continue;
+      if(this.now()-job.at>30000){
+        this.recordDelivery(job,0,'expired-in-queue');
+        continue;
+      }
       const delivery={ruleId:job.ruleId,gift:job.g.name||job.ruleId,sent:0,total:job.commands.length,phase:'sending'};
       this.activeDelivery=delivery;
       let outcome='stopped';
@@ -152,7 +167,7 @@ export class CustomRulesLane {
         this.stop();
         break;
       }finally{
-        this.lastDelivery={ruleId:delivery.ruleId,gift:delivery.gift,sent:delivery.sent,total:delivery.total,outcome};
+        this.lastDelivery=this.recordDelivery(job,delivery.sent,outcome);
         this.activeDelivery=null;
       }
     }}finally{this.inflight=false;}

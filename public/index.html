@@ -2,6 +2,15 @@
 <p><strong>Mode: <span id="customMode">Off</span></strong> · Rules: <span id="customCount">0</span> · Kits: <span id="customKits">0</span> · Queue: <span id="customQueue">0</span></p>
 <p><strong>Active delivery:</strong> <span id="customDelivery">No active gift.</span></p>
 <p><small id="customLastDelivery" role="status"></small></p>
+<details>
+  <summary>Recent gift deliveries</summary>
+  <p><small>Last 20 outcomes since the engine started. Sends still need in-game confirmation.</small></p>
+  <p id="customHistoryEmpty">No gift deliveries this session.</p>
+  <table id="customHistory" hidden>
+    <thead><tr><th scope="col">Time</th><th scope="col">Gift</th><th scope="col">Commands sent</th><th scope="col">Outcome</th></tr></thead>
+    <tbody id="customHistoryRows"></tbody>
+  </table>
+</details>
 <label>Specimen Implant ID <input id="customPlayerId" inputmode="numeric" placeholder="Saved Specimen Implant ID"></label>
 <p><small id="customTargetStatus" role="status">Checking saved target...</small></p>
 <p><button id="customReload">Reload saved Kits &amp; rules</button><button id="customSave">Save target ID</button><button id="customPreview">Enable preview</button></p>
@@ -53,6 +62,14 @@ giftButton('giftRconLive',async()=>{
 giftButton('giftRconStop',async()=>{await giftRequest('gift-rcon-emergency-stop');return 'EMERGENCY STOP: disabled gift RCON and legacy rule queues. An in-flight RCON request cannot be recalled.';});
 
 const customModeNames={off:'Off',preview:'Preview (NO RCON)',live:'LIVE'};
+const deliveryOutcomes={
+ 'sent-unverified':'Sends complete — verify in game',
+ 'stopped':'Stopped — remaining commands canceled',
+ 'rcon-error':'Send failed or unconfirmed',
+ 'canceled-in-queue':'Canceled before sending',
+ 'expired-in-queue':'Expired before sending',
+};
+let renderedDeliveryHistory='';
 let lastDisplayedCustomTarget=null;
 const previousRender=render;render=function(){
  previousRender();
@@ -77,6 +94,25 @@ const previousRender=render;render=function(){
    lastLabel=`Last delivery: ${last.gift} · ${last.sent}/${last.total} commands sent · ${result}.`;
  }
  if($('customLastDelivery').textContent!==lastLabel)$('customLastDelivery').textContent=lastLabel;
+ const history=Array.isArray(c.deliveryHistory) ? c.deliveryHistory : [];
+ const historyKey=JSON.stringify(history);
+ if(renderedDeliveryHistory!==historyKey){
+   renderedDeliveryHistory=historyKey;
+   const rows=history.map(delivery=>{
+     const row=document.createElement('tr');
+     const cells=[new Date(delivery.at).toLocaleTimeString(),delivery.gift,
+       `${delivery.sent}/${delivery.total}`,deliveryOutcomes[delivery.outcome]||'Unknown'];
+     for(const value of cells){
+       const cell=document.createElement('td');
+       cell.textContent=value;
+       row.append(cell);
+     }
+     return row;
+   });
+   $('customHistoryRows').replaceChildren(...rows);
+   $('customHistory').hidden=rows.length===0;
+   $('customHistoryEmpty').hidden=rows.length!==0;
+ }
  // The v1.1 engine persists the authoritative target in settings.playerId.
  // Do not wipe what the user is typing during the 1.5-second status refresh.
  const savedId=String(state.settings?.playerId??'');
