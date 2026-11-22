@@ -16,3 +16,5 @@ Expand **Recent gift deliveries** for up to 20 outcomes from the current session
 Select **Download delivery history** to save the visible session outcomes as JSON before restarting. The export uses UTC timestamps and includes gift names, sent and planned counts, and outcomes. It omits command bodies, payloads and player IDs. Downloads are available once there is at least one delivery outcome.
 
 Use **Review a saved report** to reopen a version 1 delivery export. The browser validates and displays the selected file locally. The saved table stays separate from the current session, and the download button continues to export the current session.
+
+Use **Filter by gift** and **Filter by outcome** to narrow the current and saved tables together. Gift search ignores case and accepts partial names. **Clear filters** restores both views. The JSON download still contains all current-session outcomes.

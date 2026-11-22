@@ -1,12 +1,20 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ice Pack ARK Interactive</title><style>body{background:#0c1725;color:#e3f2ff;font:16px system-ui;margin:32px auto;max-width:960px;padding:0 18px}h1{color:#81d9ff}button{background:#1d4661;color:white;border:1px solid #4c819d;border-radius:8px;padding:12px;margin:4px;cursor:pointer}section{background:#14263a;padding:18px;border-radius:12px;margin:18px 0}input{padding:10px;width:95%;background:#0c1725;color:white;border:1px solid #4c819d}td,th{padding:8px;text-align:left;border-bottom:1px solid #304559}table{width:100%;border-collapse:collapse}small{color:#a1c5df}#error,#savedDeliveryError{color:#ffb6b6}</style></head><body><small>THE ICE PACK / DEVELOPMENT BUILD 0.7</small><h1>ARK Interactive</h1><p>Gift discovery via Streamer.bot and Nitrado connectivity • Automatic console bridge and RCON rewards</p><section><h2>Gift source: <span id="status">Disconnected</span></h2><p>Streamer.bot bridge enabled. Send a test gift from TikFinity.</p><button data-action="refresh">Catalog status</button><button data-action="simulate">Simulate gift</button><button data-action="rcon">Test ARK RCON</button><button data-action="broadcast-test">Test In-game Broadcast</button><p id="error" role="status"></p></section><section><h2>Gameplay tests</h2><p>Gameplay: <strong id="armed">Off</strong> · Pending: <strong id="pending">0</strong></p><p>One rule per gift event when armed; commands expire after 2 minutes. Open an empty ARK console and press F8 with the optional local bridge running.</p><p>Automatic mode: <strong id="autoState">Off</strong> · Bridge: <strong id="bridgeState">Idle</strong> · In flight: <strong id="activeState">None</strong></p><p>Experimental: close all game menus and chat, stand safely, and use the configured console key. Enable here, then F9 in ARK. F9 again stops. F10 emergency stop. F8 remains manual.</p><button data-action="auto-enable">Permit automatic mode</button><button data-action="auto-disable">Disable automatic mode</button><button data-action="dodo-test">Queue test Dodo</button><button data-action="arm">Arm gift rules</button><button data-action="disarm">Disarm / clear queue</button><hr><label for="playerId">Your numeric character implant ID (not EOS ID)</label><input id="playerId" inputmode="numeric" placeholder="Character Player ID"><button data-action="stone-test">Test RCON: give 1 stone</button><p>Check your inventory in ARK; a server acknowledgement is not proof of delivery.</p></section><section><h2>Custom gift rules</h2><p>Save your character ID and rules before arming. Item rules run through RCON; spawn rules require F8 and Enter. One rule per received event.</p><label>Reward character ID <input id="rewardId" inputmode="numeric"></label><label>Gift name or exact ID <input id="gift" value="Rose"></label><label>Action <select id="kind"><option value="spawn">Spawn wild creature</option><option value="item">Give item via RCON</option></select></label> <label>Target <select id="target"></select></label><p><label>Level <input id="level" type="number" min="1" max="150" value="10"></label><label>Quantity <input id="quantity" type="number" min="1" max="100" value="1"></label><label>Distance (cm) <input id="distance" type="number" min="200" max="2000" value="500"></label><label>Cooldown (seconds) <input id="cooldown" type="number" min="0" max="300" value="5"></label></p><button id="addRule">Add / replace rule</button><button id="saveRules">Save rules & character</button><button id="testRule">Test current action</button><div id="rules"></div></section><section><h2>Gift catalog <span id="total"></span></h2><input id="search" placeholder="Search gift name or ID"><table><thead><tr><th>ID</th><th>Gift</th><th>Coins</th></tr></thead><tbody id="catalog"></tbody></table></section><section id="direct-spawn"><h2>Direct RCON Spawn Test (Manual Only)</h2><p>Preview the new IcePackSpawn command first. The live test sends exactly one level-25 Dodo to your Specimen Implant ID. This is independent of gift rules and the legacy F8 bridge.</p><label>Specimen Implant ID <input id="directSpawnPlayerId" inputmode="numeric" placeholder="Numeric Implant ID"></label><label>Creature <select id="directSpawnCreature"><option>Dodo</option><option>Raptor</option><option>Rex</option></select></label><label>Level <input id="directSpawnLevel" type="number" min="1" max="150" value="25"></label><p><button id="previewDirectSpawn">Preview (No RCON)</button><button id="liveDirectSpawn">Send One Dodo via RCON</button></p><pre id="directSpawnOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p>For the first live test select Dodo and level 25. A generic RCON acknowledgement does not prove spawning; confirm the Dodo appears in ARK.</p></section><section id="gift-rcon"><h2>Gift → RCON (Experimental)</h2><p>Independent of the legacy F8 bridge. One matching gift triggers at most ONE level-25 Dodo. Preview is safe; live mode uses Nitrado RCON.</p><p><strong>Mode: <span id="giftRconMode">Off</span></strong> · Queue: <span id="giftRconQueue">0</span> · In flight: <span id="giftRconFlight">No</span></p><label>Exact TikTok gift name or gift ID <input id="giftRconGift" value="Rose"></label><label>Specimen Implant ID <input id="giftRconPlayerId" inputmode="numeric" placeholder="Numeric Implant ID"></label><p><button id="giftRconSave">Save session configuration</button><button id="giftRconPreview">Enable preview</button><button id="giftRconSimulate">Simulate mapped gift (NO RCON)</button><button id="giftRconLive">Enable LIVE gift Dodos</button><button id="giftRconStop" style="background:#7e2020">EMERGENCY STOP</button></p><pre id="giftRconOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p><small>Live mode is OFF at every server restart. Gift cooldown: 15 seconds. Streak count never multiplies this first test. A successful RCON send is not proof the dinosaur spawned. Emergency stop cannot recall an in-flight command.</small></p></section><section id="custom-rules"><h2>Custom Gift Rules &amp; Kits (Beta)</h2><p>Loads the saved rules from your Catalog Manager (port 3211). Edits are made there, then click Reload here. Base Game only; live actions currently permit wild Dodo/Raptor/Rex and Stone. Other configured actions are blocked, not substituted.</p>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ice Pack ARK Interactive</title><style>body{background:#0c1725;color:#e3f2ff;font:16px system-ui;margin:32px auto;max-width:960px;padding:0 18px}h1{color:#81d9ff}button{background:#1d4661;color:white;border:1px solid #4c819d;border-radius:8px;padding:12px;margin:4px;cursor:pointer}section{background:#14263a;padding:18px;border-radius:12px;margin:18px 0}input{padding:10px;width:95%;background:#0c1725;color:white;border:1px solid #4c819d}td,th{padding:8px;text-align:left;border-bottom:1px solid #304559}table{width:100%;border-collapse:collapse}small{color:#a1c5df}#error,#savedDeliveryError{color:#ffb6b6}.delivery-filters{display:grid;grid-template-columns:max-content minmax(10rem,1fr);align-items:center;gap:8px 12px;max-width:38rem}.delivery-filters input,.delivery-filters select{width:100%;box-sizing:border-box;background:#0c1725;color:#e3f2ff;border:1px solid #4c819d;border-radius:6px;padding:10px}.delivery-filters button{grid-column:2;justify-self:start;margin-left:0}@media(max-width:480px){.delivery-filters{grid-template-columns:1fr}.delivery-filters button{grid-column:auto}}</style></head><body><small>THE ICE PACK / DEVELOPMENT BUILD 0.7</small><h1>ARK Interactive</h1><p>Gift discovery via Streamer.bot and Nitrado connectivity • Automatic console bridge and RCON rewards</p><section><h2>Gift source: <span id="status">Disconnected</span></h2><p>Streamer.bot bridge enabled. Send a test gift from TikFinity.</p><button data-action="refresh">Catalog status</button><button data-action="simulate">Simulate gift</button><button data-action="rcon">Test ARK RCON</button><button data-action="broadcast-test">Test In-game Broadcast</button><p id="error" role="status"></p></section><section><h2>Gameplay tests</h2><p>Gameplay: <strong id="armed">Off</strong> · Pending: <strong id="pending">0</strong></p><p>One rule per gift event when armed; commands expire after 2 minutes. Open an empty ARK console and press F8 with the optional local bridge running.</p><p>Automatic mode: <strong id="autoState">Off</strong> · Bridge: <strong id="bridgeState">Idle</strong> · In flight: <strong id="activeState">None</strong></p><p>Experimental: close all game menus and chat, stand safely, and use the configured console key. Enable here, then F9 in ARK. F9 again stops. F10 emergency stop. F8 remains manual.</p><button data-action="auto-enable">Permit automatic mode</button><button data-action="auto-disable">Disable automatic mode</button><button data-action="dodo-test">Queue test Dodo</button><button data-action="arm">Arm gift rules</button><button data-action="disarm">Disarm / clear queue</button><hr><label for="playerId">Your numeric character implant ID (not EOS ID)</label><input id="playerId" inputmode="numeric" placeholder="Character Player ID"><button data-action="stone-test">Test RCON: give 1 stone</button><p>Check your inventory in ARK; a server acknowledgement is not proof of delivery.</p></section><section><h2>Custom gift rules</h2><p>Save your character ID and rules before arming. Item rules run through RCON; spawn rules require F8 and Enter. One rule per received event.</p><label>Reward character ID <input id="rewardId" inputmode="numeric"></label><label>Gift name or exact ID <input id="gift" value="Rose"></label><label>Action <select id="kind"><option value="spawn">Spawn wild creature</option><option value="item">Give item via RCON</option></select></label> <label>Target <select id="target"></select></label><p><label>Level <input id="level" type="number" min="1" max="150" value="10"></label><label>Quantity <input id="quantity" type="number" min="1" max="100" value="1"></label><label>Distance (cm) <input id="distance" type="number" min="200" max="2000" value="500"></label><label>Cooldown (seconds) <input id="cooldown" type="number" min="0" max="300" value="5"></label></p><button id="addRule">Add / replace rule</button><button id="saveRules">Save rules & character</button><button id="testRule">Test current action</button><div id="rules"></div></section><section><h2>Gift catalog <span id="total"></span></h2><input id="search" placeholder="Search gift name or ID"><table><thead><tr><th>ID</th><th>Gift</th><th>Coins</th></tr></thead><tbody id="catalog"></tbody></table></section><section id="direct-spawn"><h2>Direct RCON Spawn Test (Manual Only)</h2><p>Preview the new IcePackSpawn command first. The live test sends exactly one level-25 Dodo to your Specimen Implant ID. This is independent of gift rules and the legacy F8 bridge.</p><label>Specimen Implant ID <input id="directSpawnPlayerId" inputmode="numeric" placeholder="Numeric Implant ID"></label><label>Creature <select id="directSpawnCreature"><option>Dodo</option><option>Raptor</option><option>Rex</option></select></label><label>Level <input id="directSpawnLevel" type="number" min="1" max="150" value="25"></label><p><button id="previewDirectSpawn">Preview (No RCON)</button><button id="liveDirectSpawn">Send One Dodo via RCON</button></p><pre id="directSpawnOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p>For the first live test select Dodo and level 25. A generic RCON acknowledgement does not prove spawning; confirm the Dodo appears in ARK.</p></section><section id="gift-rcon"><h2>Gift → RCON (Experimental)</h2><p>Independent of the legacy F8 bridge. One matching gift triggers at most ONE level-25 Dodo. Preview is safe; live mode uses Nitrado RCON.</p><p><strong>Mode: <span id="giftRconMode">Off</span></strong> · Queue: <span id="giftRconQueue">0</span> · In flight: <span id="giftRconFlight">No</span></p><label>Exact TikTok gift name or gift ID <input id="giftRconGift" value="Rose"></label><label>Specimen Implant ID <input id="giftRconPlayerId" inputmode="numeric" placeholder="Numeric Implant ID"></label><p><button id="giftRconSave">Save session configuration</button><button id="giftRconPreview">Enable preview</button><button id="giftRconSimulate">Simulate mapped gift (NO RCON)</button><button id="giftRconLive">Enable LIVE gift Dodos</button><button id="giftRconStop" style="background:#7e2020">EMERGENCY STOP</button></p><pre id="giftRconOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p><small>Live mode is OFF at every server restart. Gift cooldown: 15 seconds. Streak count never multiplies this first test. A successful RCON send is not proof the dinosaur spawned. Emergency stop cannot recall an in-flight command.</small></p></section><section id="custom-rules"><h2>Custom Gift Rules &amp; Kits (Beta)</h2><p>Loads the saved rules from your Catalog Manager (port 3211). Edits are made there, then click Reload here. Base Game only; live actions currently permit wild Dodo/Raptor/Rex and Stone. Other configured actions are blocked, not substituted.</p>
 <p><strong>Mode: <span id="customMode">Off</span></strong> · Rules: <span id="customCount">0</span> · Kits: <span id="customKits">0</span> · Queue: <span id="customQueue">0</span></p>
 <p><strong>Active delivery:</strong> <span id="customDelivery">No active gift.</span></p>
 <p><small id="customLastDelivery" role="status"></small></p>
 <details>
   <summary>Recent gift deliveries</summary>
   <p><small>Last 20 outcomes since the engine started. Sends still need in-game confirmation.</small></p>
-  <p id="customHistoryEmpty">No gift deliveries this session.</p>
+  <div class="delivery-filters">
+    <label for="deliveryGiftFilter">Filter by gift</label>
+    <input id="deliveryGiftFilter" type="search" placeholder="e.g. Rose">
+    <label for="deliveryOutcomeFilter">Filter by outcome</label>
+    <select id="deliveryOutcomeFilter"><option value="">All outcomes</option></select>
+    <button id="clearDeliveryFilters" type="button">Clear filters</button>
+  </div>
+  <p id="customHistoryEmpty" role="status">No gift deliveries this session.</p>
   <button id="downloadDeliveryHistory" type="button" disabled>Download delivery history</button>
+  <p><small>Downloads include all current-session outcomes.</small></p>
   <table id="customHistory" hidden>
     <thead><tr><th scope="col">Date and time</th><th scope="col">Gift</th><th scope="col">Commands sent</th><th scope="col">Outcome</th></tr></thead>
     <tbody id="customHistoryRows"></tbody>
@@ -17,6 +25,7 @@
   <p><small id="savedDeliveryHelp">The browser reads the file locally. Saved outcomes stay separate from the current session.</small></p>
   <p id="savedDeliveryStatus" role="status"></p>
   <p id="savedDeliveryError" role="alert"></p>
+  <p id="savedDeliveryFiltered" role="status"></p>
   <table id="savedDeliveryTable" hidden>
     <caption>Saved delivery report</caption>
     <thead><tr><th scope="col">Date and time</th><th scope="col">Gift</th><th scope="col">Commands sent</th><th scope="col">Outcome</th></tr></thead>
@@ -83,6 +92,7 @@ const deliveryOutcomes={
 };
 let renderedDeliveryHistory='';
 let displayedDeliveries=[];
+let savedReport=null;
 function renderDeliveryRows(target,deliveries){
  const rows=deliveries.map(delivery=>{
    const row=document.createElement('tr');
@@ -97,6 +107,38 @@ function renderDeliveryRows(target,deliveries){
  });
  target.replaceChildren(...rows);
 }
+function filterDeliveries(deliveries){
+ const gift=$('deliveryGiftFilter').value.trim().toLowerCase();
+ const outcome=$('deliveryOutcomeFilter').value;
+ return deliveries.filter(row=>String(row.gift).toLowerCase().includes(gift)&&(!outcome||row.outcome===outcome));
+}
+function filterSummary(visible,total){
+ return visible===0 ? `No matches in ${total} outcomes.` : `Showing ${visible} of ${total} outcomes.`;
+}
+function renderDeliveryLists(){
+ const live=filterDeliveries(displayedDeliveries);
+ renderDeliveryRows($('customHistoryRows'),live);
+ $('customHistory').hidden=live.length===0;
+ $('customHistoryEmpty').textContent=displayedDeliveries.length
+   ? filterSummary(live.length,displayedDeliveries.length) : 'No gift deliveries this session.';
+ $('downloadDeliveryHistory').disabled=displayedDeliveries.length===0;
+ const saved=savedReport ? filterDeliveries(savedReport.deliveries) : [];
+ renderDeliveryRows($('savedDeliveryRows'),saved);
+ $('savedDeliveryTable').hidden=saved.length===0;
+ $('savedDeliveryFiltered').textContent=savedReport?.deliveries.length
+   ? filterSummary(saved.length,savedReport.deliveries.length) : '';
+}
+for(const [value,label] of Object.entries(deliveryOutcomes)){
+ $('deliveryOutcomeFilter').add(new Option(label,value));
+}
+$('deliveryGiftFilter').oninput=renderDeliveryLists;
+$('deliveryOutcomeFilter').onchange=renderDeliveryLists;
+$('clearDeliveryFilters').onclick=()=>{
+ $('deliveryGiftFilter').value='';
+ $('deliveryOutcomeFilter').value='';
+ renderDeliveryLists();
+ $('deliveryGiftFilter').focus();
+};
 function reportTimestamp(value){
  const timestamp=typeof value==='string'?Date.parse(value):NaN;
  if(!Number.isFinite(timestamp)||new Date(timestamp).toISOString()!==value){
@@ -125,15 +167,15 @@ $('savedDeliveryFile').onchange=async event=>{
  const file=input.files[0];
  $('savedDeliveryStatus').textContent='';
  $('savedDeliveryError').textContent='';
- $('savedDeliveryRows').replaceChildren();
- $('savedDeliveryTable').hidden=true;
+ savedReport=null;
+ renderDeliveryLists();
  if(!file)return;
  input.disabled=true;
  try{
    if(file.size>128_000)throw new Error('Choose a delivery report under 128 KB.');
-   const {exportedAt,deliveries}=parseDeliveryReport(JSON.parse(await file.text()));
-   renderDeliveryRows($('savedDeliveryRows'),deliveries);
-   $('savedDeliveryTable').hidden=deliveries.length===0;
+   savedReport=parseDeliveryReport(JSON.parse(await file.text()));
+   const {exportedAt,deliveries}=savedReport;
+   renderDeliveryLists();
    $('savedDeliveryStatus').textContent=`Loaded ${deliveries.length} saved outcome(s). Exported ${new Date(exportedAt).toLocaleString()}.`;
  }catch(error){
    $('savedDeliveryError').textContent=error instanceof SyntaxError?'The selected file is not valid JSON.':error.message;
@@ -186,10 +228,7 @@ const previousRender=render;render=function(){
  if(renderedDeliveryHistory!==historyKey){
    renderedDeliveryHistory=historyKey;
    displayedDeliveries=history;
-   $('downloadDeliveryHistory').disabled=displayedDeliveries.length===0;
-   renderDeliveryRows($('customHistoryRows'),history);
-   $('customHistory').hidden=history.length===0;
-   $('customHistoryEmpty').hidden=history.length!==0;
+   renderDeliveryLists();
  }
  // The v1.1 engine persists the authoritative target in settings.playerId.
  // Do not wipe what the user is typing during the 1.5-second status refresh.
