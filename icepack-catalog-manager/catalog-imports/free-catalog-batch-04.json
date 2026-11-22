@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "dinosaurs": [
+    {
+      "id": "Bison",
+      "name": "Bison",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Herbivores",
+      "tags": [
+        "Ragnarok"
+      ],
+      "source": "Studio Wildcard: Ragnarok Ascended release"
+    },
+    {
+      "id": "Griffin",
+      "name": "Griffin",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Carnivores",
+      "tags": [
+        "Ragnarok",
+        "Flying"
+      ],
+      "source": "Studio Wildcard: Ragnarok Ascended release"
+    },
+    {
+      "id": "Megaraptor",
+      "name": "Megaraptor",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Carnivores",
+      "tags": [
+        "Valguero"
+      ],
+      "source": "Studio Wildcard: Valguero Ascended release"
+    },
+    {
+      "id": "Deinonychus",
+      "name": "Deinonychus",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Carnivores",
+      "tags": [
+        "Valguero"
+      ],
+      "source": "Studio Wildcard: Valguero Ascended release"
+    },
+    {
+      "id": "IceGolem",
+      "name": "Ice Golem",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Valguero"
+      ],
+      "source": "Studio Wildcard: Valguero Ascended release"
+    },
+    {
+      "id": "ChalkGolem",
+      "name": "Chalk Golem",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Other / Omnivores",
+      "tags": [
+        "Valguero"
+      ],
+      "source": "Studio Wildcard: Valguero Ascended release"
+    }
+  ],
+  "items": [
+    {
+      "id": "Flint",
+      "name": "Flint",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Metal",
+      "name": "Metal",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "MetalIngot",
+      "name": "Metal Ingot",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Crystal",
+      "name": "Crystal",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Obsidian",
+      "name": "Obsidian",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Hide",
+      "name": "Hide",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Chitin",
+      "name": "Chitin",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Keratin",
+      "name": "Keratin",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "Sparkpowder",
+      "name": "Sparkpowder",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "CementingPaste",
+      "name": "Cementing Paste",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Resources",
+      "tags": [],
+      "source": "ARK Official Community Wiki: resources"
+    },
+    {
+      "id": "MortarAndPestle",
+      "name": "Mortar and Pestle",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Structures",
+      "tags": [
+        "Crafting Stations"
+      ],
+      "source": "ARK Official Community Wiki: Mortar and Pestle"
+    },
+    {
+      "id": "Fabricator",
+      "name": "Fabricator",
+      "blueprint": null,
+      "contentPack": "base-game",
+      "enabled": true,
+      "verified": false,
+      "category": "Structures",
+      "tags": [
+        "Crafting Stations"
+      ],
+      "source": "ARK Official Community Wiki: Fabricator"
+    }
+  ]
+}

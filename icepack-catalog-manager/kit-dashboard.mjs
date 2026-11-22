@@ -8,7 +8,7 @@ const base=path.dirname(fileURLToPath(import.meta.url));
 const port=Number(process.env.KIT_EDITOR_PORT||3211);
 if(!Number.isSafeInteger(port)||port<1024||port>65535)throw Error('Invalid KIT_EDITOR_PORT');
 const html=fs.readFileSync(path.join(base,'public','index.html'));
-async function body(req){let chunks=[],bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>262144)throw Error('Request too large');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
+async function body(req, limit){let chunks=[],bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)throw Error('Request too large');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
 const server=http.createServer(async(req,res)=>{
  const json=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
  try{
@@ -16,7 +16,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(html);return;}
   if(req.method==='GET'&&req.url==='/api/state')return json(200,{catalog,contentPrefs:loadPrefs(),config:load(),dryRun:true});
   if(req.method!=='POST'||!['http://localhost:'+port,'http://127.0.0.1:'+port].includes(req.headers.origin)||req.headers['x-icepack-editor']!=='1')return json(403,{error:'Local dashboard only'});
-  const payload=await body(req);
+  const payload=await body(req,req.url==='/api/catalog/import'?4_100_000:262144);
   if(req.url==='/api/content/preferences')return json(200,{contentPrefs:savePrefs(payload)});
   if(req.url==='/api/catalog/import'){const checked=saveCatalog(payload.catalog);return json(200,{catalog:checked,contentPrefs:loadPrefs()});}
   if(req.url==='/api/rule/save') {

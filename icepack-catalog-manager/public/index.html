@@ -84,10 +84,11 @@ $('entry-save').addEventListener('click',async()=>{try{
 $('catalog-export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(catalog,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a',{href:url,download:'ark-catalog-v2-backup.json'});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);cmsg('Catalog exported.');});
 $('catalog-import-save').addEventListener('click',async()=>{try{
  const selectedFile=$('catalog-import-file').files[0];
+ if(selectedFile&&selectedFile.size>4_000_000)throw Error('Catalog JSON file is too large (4 MB limit)');
  const source=selectedFile?await selectedFile.text():$('catalog-import').value;
  if(!source.trim())throw Error('Choose a JSON file or paste catalog JSON before importing');
- if(selectedFile&&selectedFile.size>250000)throw Error('Catalog JSON file is too large for this editor (250 KB limit)');
- const next=JSON.parse(source);
+ if(!selectedFile&&new TextEncoder().encode(source).length>4_000_000)throw Error('Catalog JSON is too large (4 MB limit)');
+ const next=JSON.parse(source.replace(/^\uFEFF/,''));
  if(!confirm('Replace the complete catalog with imported JSON? Existing Kit IDs are protected.'))return;
  const response=await api('/api/catalog/import',{catalog:next});
  catalog=response.catalog;prefs=response.contentPrefs;renderCatalog();drawEntries();
