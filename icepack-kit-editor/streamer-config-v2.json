@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 2,
+  "kits": [
+    {
+      "id": "kit-8a61cfcb",
+      "name": "TestKit1",
+      "entries": [
+        {
+          "type": "item",
+          "itemId": "Stone",
+          "quantity": 100,
+          "announcement": false
+        },
+        {
+          "type": "item",
+          "itemId": "Wood",
+          "quantity": 100,
+          "announcement": false
+        },
+        {
+          "type": "dinosaur",
+          "creatureId": "Raptor",
+          "level": 50,
+          "status": "tamed",
+          "quantity": 1,
+          "announcement": true
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "legacy-1",
+      "giftId": null,
+      "giftName": "Heart Me",
+      "enabled": true,
+      "cooldown": 2,
+      "reward": {
+        "type": "item",
+        "itemId": "Wood",
+        "quantity": 25,
+        "announcement": false
+      }
+    },
+    {
+      "id": "legacy-2",
+      "giftId": null,
+      "giftName": "Perfume",
+      "enabled": true,
+      "cooldown": 5,
+      "reward": {
+        "type": "item",
+        "itemId": "Stone",
+        "quantity": 100,
+        "announcement": false
+      }
+    },
+    {
+      "id": "legacy-3",
+      "giftId": null,
+      "giftName": "Galaxy",
+      "enabled": true,
+      "cooldown": 30,
+      "reward": {
+        "type": "dinosaur",
+        "creatureId": "Rex",
+        "level": 150,
+        "status": "wild",
+        "quantity": 1,
+        "announcement": false
+      }
+    },
+    {
+      "id": "legacy-4",
+      "giftId": null,
+      "giftName": "Lion",
+      "enabled": true,
+      "cooldown": 60,
+      "reward": {
+        "type": "dinosaur",
+        "creatureId": "Rex",
+        "level": 150,
+        "status": "wild",
+        "quantity": 5,
+        "announcement": false
+      }
+    },
+    {
+      "id": "legacy-5",
+      "giftId": null,
+      "giftName": "Rose",
+      "enabled": true,
+      "cooldown": 5,
+      "reward": {
+        "type": "dinosaur",
+        "creatureId": "Raptor",
+        "level": 20,
+        "status": "wild",
+        "quantity": 2,
+        "announcement": false
+      }
+    }
+  ]
+}

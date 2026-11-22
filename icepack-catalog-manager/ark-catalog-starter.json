@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "dinosaurs": [
+    {"id":"Dodo","name":"Dodo","blueprint":null,"source":"legacy"},
+    {"id":"Raptor","name":"Raptor","blueprint":null,"source":"legacy"},
+    {"id":"Rex","name":"Rex","blueprint":null,"source":"legacy"},
+    {"id":"Carno","name":"Carnotaurus","blueprint":null,"source":"legacy"},
+    {"id":"Dilo","name":"Dilophosaur","blueprint":null,"source":"legacy"}
+  ],
+  "items": [
+    {"id":"Stone","name":"Stone","blueprint":null,"source":"legacy"},
+    {"id":"Wood","name":"Wood","blueprint":null,"source":"legacy"},
+    {"id":"Thatch","name":"Thatch","blueprint":null,"source":"legacy"},
+    {"id":"Fiber","name":"Fiber","blueprint":null,"source":"legacy"}
+  ]
+}

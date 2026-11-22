@@ -1,0 +1,1 @@
+Replace only ARK-Console-Bridge.ahk. Exit old script first, then launch new script once. F7 shows status anywhere; F8/F9 only in ARK; F10 stops auto. Focus loss intentionally revokes server permission. Re-permit in dashboard before returning to ARK and pressing F9. No server changes. Windows runtime not tested.

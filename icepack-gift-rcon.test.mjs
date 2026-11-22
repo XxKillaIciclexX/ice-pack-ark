@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {GiftRconLane} from './icepack-gift-rcon.mjs';
+const make=()=>{const sent=[];let now=100000;const lane=new GiftRconLane({send:async c=>{sent.push(c)},now:()=>now});lane.configure({gift:'Rose',playerId:'537815134'});return {lane,sent,advance:n=>now+=n};};
+const rose={id:'5655',name:'Rose',count:50};
+test('starts disabled and does not intercept legacy gifts',()=>{const {lane,sent}=make();assert.equal(lane.mode,'off');assert.equal(lane.handle(rose),false);assert.equal(sent.length,0)});
+test('preview never transmits even if matching',()=>{const {lane,sent}=make();lane.setMode('preview');assert.equal(lane.handle(rose),true);assert.equal(sent.length,0);assert.equal(lane.state().history[0].status,'preview')});
+test('ignores unrelated gifts and requires explicit live confirmation',()=>{const {lane}=make();assert.throws(()=>lane.setMode('live'),/confirmation/);lane.setMode('live','ENABLE LIVE DODO GIFTS');assert.equal(lane.handle({id:'1',name:'Lion'}),false)});
+test('live one event sends one Dodo regardless of streak count',async()=>{const {lane,sent}=make();lane.setMode('live','ENABLE LIVE DODO GIFTS');lane.handle(rose);await new Promise(setImmediate);assert.deepEqual(sent,['ScriptCommand IcePackSpawn,Dodo,25,537815134'])});
+test('cooldown blocks rapid repeats and allows later event',async()=>{const {lane,sent,advance}=make();lane.setMode('live','ENABLE LIVE DODO GIFTS');lane.handle(rose);lane.handle(rose);await new Promise(setImmediate);assert.equal(sent.length,1);advance(15000);lane.handle(rose);await new Promise(setImmediate);assert.equal(sent.length,2)});
+test('emergency stop removes pending jobs and disables lane',()=>{const {lane}=make();lane.setMode('live','ENABLE LIVE DODO GIFTS');lane.stop();assert.equal(lane.mode,'off');assert.equal(lane.handle(rose),false)});
+test('rejects unsafe implant IDs',()=>{const {lane}=make();assert.throws(()=>lane.configure({gift:'Rose',playerId:'1|DestroyAll'}))});
+test('matches gift ID over display label if configured by ID',()=>{const {lane}=make();lane.configure({gift:'5655',playerId:'537815134'});lane.setMode('preview');assert.equal(lane.handle(rose),true);assert.equal(lane.handle({id:'888',name:'Rose'}),false);});
+test('failed RCON stops automatically without retry',async()=>{const lane=new GiftRconLane({send:async()=>{throw Error('network')}});lane.configure({gift:'Rose',playerId:'1'});lane.setMode('live','ENABLE LIVE DODO GIFTS');lane.handle(rose);await new Promise(setImmediate);assert.equal(lane.mode,'off');assert.equal(lane.state().history[0].status,'rcon-error')});

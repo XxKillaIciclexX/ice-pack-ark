@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "kits": [
+    {
+      "id": "demo-kit",
+      "name": "Starter supplies",
+      "entries": [
+        {
+          "type": "item",
+          "itemId": "Stone",
+          "quantity": 100,
+          "announcement": false
+        },
+        {
+          "type": "dinosaur",
+          "creatureId": "Dodo",
+          "level": 25,
+          "status": "wild",
+          "quantity": 1,
+          "announcement": false
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "demo-1",
+      "giftId": null,
+      "giftName": "Rose",
+      "enabled": true,
+      "cooldown": 0,
+      "reward": {
+        "type": "dinosaur",
+        "creatureId": "Dodo",
+        "level": 25,
+        "status": "wild",
+        "quantity": 1,
+        "announcement": false
+      }
+    },
+    {
+      "id": "demo-2",
+      "giftId": null,
+      "giftName": "Galaxy",
+      "enabled": true,
+      "cooldown": 0,
+      "reward": {
+        "type": "dinosaur",
+        "creatureId": "Rex",
+        "level": 150,
+        "status": "wild",
+        "quantity": 1,
+        "announcement": false
+      }
+    },
+    {
+      "id": "aa4ca733-927a-4f22-8285-7687572b2a3d",
+      "giftId": null,
+      "giftName": "Heart Me",
+      "enabled": true,
+      "cooldown": 0,
+      "reward": {
+        "type": "kit",
+        "kitId": "demo-kit",
+        "announcement": false
+      }
+    }
+  ]
+}

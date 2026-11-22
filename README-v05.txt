@@ -1,0 +1,4 @@
+Ice Pack ARK v0.5 - controlled gameplay test
+Stop npm start. Replace server.mjs and public/index.html only. Preserve .env and catalog.json. Restart npm start.
+RCON stone test: use numeric character implant ID (not EOS ID), check inventory before/after. One stone only. RCON acknowledgement is not proof.
+Local Dodo: Install AutoHotkey v2, run ARK-Console-Bridge.ahk on gaming PC. Queue test Dodo in dashboard. Return to ARK, open an empty admin console, press F8. Inspect command, press Enter yourself. Bridge does not press Enter. If no text appears, verify executable name and console focus; no automatic retry. Commands are removed from queue on retrieval, expire after 2 minutes, and queue max is 10. Arm Rose queue to accept one Dodo per incoming Rose/Rosa event. Disarm clears pending commands. No automatic spawn or repeat-streak deduplication guarantee. No password is stored in AHK. Never run while typing in chat. AutoHotkey script has not been tested in Windows/ARK.
