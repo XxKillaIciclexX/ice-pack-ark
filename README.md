@@ -14,3 +14,5 @@ The Custom Gift Rules panel shows sent versus total commands for the active gift
 Expand **Recent gift deliveries** for up to 20 outcomes from the current session. Queued gifts that expire or are canceled before sending appear with 0 sends. Preview events stay in the event log. Restarting the engine clears the delivery list.
 
 Select **Download delivery history** to save the visible session outcomes as JSON before restarting. The export uses UTC timestamps and includes gift names, sent and planned counts, and outcomes. It omits command bodies, payloads and player IDs. Downloads are available once there is at least one delivery outcome.
+
+Use **Review a saved report** to reopen a version 1 delivery export. The browser validates and displays the selected file locally. The saved table stays separate from the current session, and the download button continues to export the current session.
