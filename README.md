@@ -12,3 +12,5 @@ Run the offline engine tests with `node --test ./*.test.mjs` in a shell that exp
 The Custom Gift Rules panel shows sent versus total commands for the active gift, along with the next spawn's cooldown. Its last-delivery summary distinguishes completed sends, canceled work, and an RCON error. Completed sends still require in-game confirmation.
 
 Expand **Recent gift deliveries** for up to 20 outcomes from the current session. Queued gifts that expire or are canceled before sending appear with 0 sends. Preview events stay in the event log. Restarting the engine clears the delivery list.
+
+Select **Download delivery history** to save the visible session outcomes as JSON before restarting. The export uses UTC timestamps and includes gift names, sent and planned counts, and outcomes. It omits command bodies, payloads and player IDs. Downloads are available once there is at least one delivery outcome.

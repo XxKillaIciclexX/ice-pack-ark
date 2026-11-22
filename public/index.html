@@ -6,6 +6,7 @@
   <summary>Recent gift deliveries</summary>
   <p><small>Last 20 outcomes since the engine started. Sends still need in-game confirmation.</small></p>
   <p id="customHistoryEmpty">No gift deliveries this session.</p>
+  <button id="downloadDeliveryHistory" type="button" disabled>Download delivery history</button>
   <table id="customHistory" hidden>
     <thead><tr><th scope="col">Time</th><th scope="col">Gift</th><th scope="col">Commands sent</th><th scope="col">Outcome</th></tr></thead>
     <tbody id="customHistoryRows"></tbody>
@@ -70,6 +71,22 @@ const deliveryOutcomes={
  'expired-in-queue':'Expired before sending',
 };
 let renderedDeliveryHistory='';
+let displayedDeliveries=[];
+$('downloadDeliveryHistory').onclick=()=>{
+ if(!displayedDeliveries.length)return;
+ const exportedAt=new Date().toISOString();
+ const deliveries=displayedDeliveries.map(({at,gift,sent,total,outcome})=>({
+   occurredAt:new Date(at).toISOString(),gift,commandsSent:sent,commandsPlanned:total,outcome,
+ }));
+ const report={schemaVersion:1,exportedAt,deliveries};
+ const file=new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'});
+ const url=URL.createObjectURL(file);
+ const link=document.createElement('a');
+ link.href=url;
+ link.download=`icepack-deliveries-${exportedAt.replace(/[:.]/g,'-')}.json`;
+ link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 let lastDisplayedCustomTarget=null;
 const previousRender=render;render=function(){
  previousRender();
@@ -98,6 +115,8 @@ const previousRender=render;render=function(){
  const historyKey=JSON.stringify(history);
  if(renderedDeliveryHistory!==historyKey){
    renderedDeliveryHistory=historyKey;
+   displayedDeliveries=history;
+   $('downloadDeliveryHistory').disabled=displayedDeliveries.length===0;
    const rows=history.map(delivery=>{
      const row=document.createElement('tr');
      const cells=[new Date(delivery.at).toLocaleTimeString(),delivery.gift,
