@@ -1,3 +1,7 @@
+import {createHash} from 'node:crypto';
+import {mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CustomRulesLane,buildPlanCommands,loadSavedRules} from './icepack-custom-rules.mjs';
@@ -178,4 +182,35 @@ test('retains only 20 outcomes and excludes Preview from delivery history', asyn
   assert.equal(history[0].gift, 'Rose 20');
   assert.equal(history.at(-1).gift, 'Rose 1');
   assert.ok(history.every(row => row.outcome === 'sent-unverified' && !('commands' in row)));
+});
+
+test('loaded fingerprints stay tied to the bytes actually parsed until a successful reload', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'icepack-fingerprints-test-'));
+  t.after(() => rm(dir, {recursive:true, force:true}));
+  const rulesPath = join(dir, 'streamer-config-v2.json');
+  const catalogPath = join(dir, 'ark-catalog-v2.json');
+  const sha = value => createHash('sha256').update(value).digest('hex');
+  const rules = JSON.stringify(kit);
+  const catalog = JSON.stringify(base);
+  await writeFile(rulesPath, rules);
+  await writeFile(catalogPath, catalog);
+  const lane = new CustomRulesLane({ sourceDir: dir, send: async () => {} });
+  assert.equal(lane.state().loadedFingerprints, null);
+  const loaded = lane.reload();
+  assert.deepEqual(loaded.loadedFingerprints, {rules:sha(rules), catalog:sha(catalog), contentPrefs:null});
+  const revised = structuredClone(kit);
+  revised.rules[0].cooldown = 60;
+  await writeFile(rulesPath, JSON.stringify(revised));
+  assert.deepEqual(lane.state().loadedFingerprints, loaded.loadedFingerprints);
+  await writeFile(rulesPath, '{');
+  assert.throws(() => lane.reload());
+  assert.deepEqual(lane.state().loadedFingerprints, loaded.loadedFingerprints);
+  await writeFile(rulesPath, JSON.stringify(revised));
+  const prefs = JSON.stringify({enabledPacks:['base-game']});
+  await writeFile(join(dir, 'content-prefs.json'), prefs);
+  const reloaded = lane.reload();
+  assert.equal(reloaded.ruleCount, loaded.ruleCount);
+  assert.equal(reloaded.kitCount, loaded.kitCount);
+  assert.equal(reloaded.loadedFingerprints.rules, sha(JSON.stringify(revised)));
+  assert.equal(reloaded.loadedFingerprints.contentPrefs, sha(prefs));
 });

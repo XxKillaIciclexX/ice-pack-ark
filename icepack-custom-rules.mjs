@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import {validateConfiguration, validateArkCatalog, planGift} from './icepack-config-engine.mjs';
 import {buildIcePackSpawnCommand} from './icepack-spawn-rcon.mjs';
@@ -16,16 +17,22 @@ const MAX_DELIVERY_HISTORY=20;
 const SPAWN_INTERVAL_MS=6000;
 const isSpawnCommand=command=>command.startsWith('ScriptCommand IcePackSpawn,');
 const validPlayerId = id => /^\d{1,10}$/.test(String(id ?? '')) && Number(id)>0 && Number(id)<=4294967295;
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 export function loadSavedRules(dir) {
   const folder=path.resolve(dir);
-  const catalog=validateArkCatalog(JSON.parse(fs.readFileSync(path.join(folder,'ark-catalog-v2.json'),'utf8')));
-  const config=validateConfiguration(JSON.parse(fs.readFileSync(path.join(folder,'streamer-config-v2.json'),'utf8')),catalog);
+  const catalogBytes=fs.readFileSync(path.join(folder,'ark-catalog-v2.json'));
+  const rulesBytes=fs.readFileSync(path.join(folder,'streamer-config-v2.json'));
+  const catalog=validateArkCatalog(JSON.parse(catalogBytes.toString('utf8')));
+  const config=validateConfiguration(JSON.parse(rulesBytes.toString('utf8')),catalog);
   const prefsPath=path.join(folder,'content-prefs.json');
-  const prefs=fs.existsSync(prefsPath)?JSON.parse(fs.readFileSync(prefsPath,'utf8')):null;
+  let prefsBytes=null;
+  try{prefsBytes=fs.readFileSync(prefsPath);}catch(error){if(error.code!=='ENOENT')throw error;}
+  const prefs=prefsBytes?JSON.parse(prefsBytes.toString('utf8')):null;
   const enabledPacks=new Set(['base-game',...(prefs?.enabledPacks??catalog.packs.filter(x=>x.enabledByDefault).map(x=>x.id))]);
   if(![...enabledPacks].every(x=>catalog.packs.some(p=>p.id===x))) throw Error('Unknown enabled content pack');
-  return {catalog,config,enabledPacks};
+  const fingerprints={rules:sha256(rulesBytes),catalog:sha256(catalogBytes),contentPrefs:prefsBytes?sha256(prefsBytes):null};
+  return {catalog,config,enabledPacks,fingerprints};
 }
 export function buildPlanCommands(plan,catalog,enabledPacks,playerId) {
   if(!validPlayerId(playerId)) throw Error('Valid Specimen Implant ID required');
@@ -94,6 +101,7 @@ export class CustomRulesLane {
     };
     return {
       mode:this.mode,loaded:!!this.saved,ruleCount:this.saved?.config.rules.length??0,
+      loadedFingerprints:this.saved?.fingerprints ? {...this.saved.fingerprints} : null,
       kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,
       queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse(),
       activeDelivery,lastDelivery:this.lastDelivery && {...this.lastDelivery},

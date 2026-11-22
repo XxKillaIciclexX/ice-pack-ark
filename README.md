@@ -18,3 +18,5 @@ Select **Download delivery history** to save the visible session outcomes as JSO
 Use **Review a saved report** to reopen a version 1 delivery export. The browser validates and displays the selected file locally. The saved table stays separate from the current session, and the download button continues to export the current session.
 
 Use **Filter by gift** and **Filter by outcome** to narrow the current and saved tables together. Gift search ignores case and accepts partial names. **Clear filters** restores both views. The JSON download still contains all current-session outcomes.
+
+The Custom Gift Rules state includes SHA-256 fingerprints of the rules, catalog, and optional content preferences actually loaded by the engine. Disk edits and failed reloads keep the previous fingerprints, so a migration verifier can distinguish stale rules even when counts match.
