@@ -15,7 +15,7 @@ async function readCatalog(file) {
 
 const pathKey = value => value?.toLowerCase().replace(/_c$/, '');
 
-export function mergeFreeCatalog(current, batch) {
+export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}) {
   if (current?.schemaVersion !== 2 || batch?.schemaVersion !== 2) {
     throw new Error('Both catalogs must use schemaVersion 2.');
   }
@@ -29,9 +29,10 @@ export function mergeFreeCatalog(current, batch) {
   }
   const counts = {};
   for (const kind of ['dinosaurs', 'items']) {
-    const ids = new Set(catalog[kind].map(entry => entry.id.toLowerCase()));
+    const currentById = new Map(catalog[kind].map(entry => [entry.id, entry]));
+    const ids = new Set([...currentById.keys()].map(id => id.toLowerCase()));
     const paths = new Set(catalog[kind].map(entry => pathKey(entry.blueprint)).filter(Boolean));
-    const result = { added: 0, existing: 0, excluded: 0 };
+    const result = { added: 0, existing: 0, excluded: 0, filledBlueprints: 0 };
     for (const entry of incoming[kind]) {
       if (entry.contentPack !== 'base-game') {
         result.excluded++;
@@ -39,6 +40,15 @@ export function mergeFreeCatalog(current, batch) {
       }
       const id = entry.id.toLowerCase();
       const blueprint = pathKey(entry.blueprint);
+      const existing = currentById.get(entry.id);
+      if (fillBlueprints && blueprint && !paths.has(blueprint) &&
+          existing?.contentPack === 'base-game' && existing.name === entry.name &&
+          !existing.blueprint && !existing.verified) {
+        existing.blueprint = entry.blueprint;
+        paths.add(blueprint);
+        result.filledBlueprints++;
+        continue;
+      }
       if (ids.has(id) || (blueprint && paths.has(blueprint))) {
         result.existing++;
         continue;
@@ -75,18 +85,20 @@ async function main() {
   const { values } = parseArgs({ options: {
     catalog: { type: 'string' },
     batch: { type: 'string' },
+    'fill-blueprints': { type: 'boolean' },
     out: { type: 'string' },
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--out <new.json>]');
+    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--fill-blueprints] [--out <new.json>]');
     return;
   }
   if (!values.catalog || !values.batch) throw new Error('Provide --catalog and --batch. Use --help for usage.');
   const [current, batch] = await Promise.all([readCatalog(values.catalog), readCatalog(values.batch)]);
-  const { catalog, counts } = mergeFreeCatalog(current, batch);
-  for (const [kind, { added, existing, excluded }] of Object.entries(counts)) {
+  const { catalog, counts } = mergeFreeCatalog(current, batch, { fillBlueprints: values['fill-blueprints'] });
+  for (const [kind, { added, existing, excluded, filledBlueprints }] of Object.entries(counts)) {
     console.log(`${kind}: ${added} added, ${existing} already present, ${excluded} outside Base Game + Free Expansions.`);
+    if (values['fill-blueprints']) console.log(`${kind}: ${filledBlueprints} blank Blueprint paths filled.`);
   }
   if (!values.out) {
     console.log('Preview complete. Use --out with a new path to save the merged catalog.');

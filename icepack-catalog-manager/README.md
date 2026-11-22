@@ -2,7 +2,7 @@
 
 ## Add free-expansion creatures and items
 
-Batch 04 adds six creatures from Ragnarok and Valguero, ten common resources, and two crafting stations. Blueprint fields are blank pending ASA DevKit verification. The expected total on the original Batch 03 catalog is 129 creatures and 16 items. Your totals will include any entries you already added. [Ragnarok Ascended release](https://survivetheark.com/index.php?/forums/topic/772489-ragnarok-ascended-and-lost-colony-expansion-pass-are-now-live/) · [Valguero Ascended release](https://survivetheark.com/index.php?/forums/topic/772919-valguero-ascended-and-fantastic-tames-elderclaw-are-now-live/) · [Resources](https://ark.wiki.gg/wiki/Resources) · [Mortar and Pestle](https://ark.wiki.gg/wiki/Mortar_%26_Pestle) · [Fabricator](https://ark.wiki.gg/wiki/Fabricator)
+Batch 04 adds six creatures from Ragnarok and Valguero, ten common resources, and two crafting stations. Each entry includes a Blueprint path and its ASA reference page from Wikily. Entries are marked **Unverified** pending in-game testing. The original Batch 03 catalog grows to 129 creatures and 16 items. Your totals include any entries you already added. [Ragnarok Ascended release](https://survivetheark.com/index.php?/forums/topic/772489-ragnarok-ascended-and-lost-colony-expansion-pass-are-now-live/) · [Valguero Ascended release](https://survivetheark.com/index.php?/forums/topic/772919-valguero-ascended-and-fantastic-tames-elderclaw-are-now-live/) · [Wikily ASA references](https://wikily.gg/ark-survival-ascended)
 
 In your running Kit Editor, select **Export catalog JSON**. From an `ice-pack-ark` development checkout, run:
 
@@ -10,13 +10,13 @@ In your running Kit Editor, select **Export catalog JSON**. From an `ice-pack-ar
 $current = (Read-Host 'Full path to the catalog JSON you just exported').Trim().Trim('"')
 $batch = '.\icepack-catalog-manager\catalog-imports\free-catalog-batch-04.json'
 $merged = Join-Path $env:USERPROFILE ('Downloads\icepack-merged-catalog-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.json')
-node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch"
-node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --out "$merged"
+node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --fill-blueprints
+node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --fill-blueprints --out "$merged"
 ```
 
-The first command reports additions and matches. The second writes a new catalog while preserving existing IDs, entries, and pack definitions. It accepts additions labeled `base-game` in a reviewed batch. A duplicate ID or Blueprint retains your existing entry. Use a fresh export so the merged copy includes your latest edits.
+The first command reports additions, matches, and filled paths. The second writes a new catalog. Use a fresh export so the merged copy includes your latest edits. The optional `--fill-blueprints` flag fills a blank path when the existing unverified entry matches the reviewed free entry by ID, name, and pack. Existing paths and other entry fields are preserved. If you imported the first Batch 04, expect up to six creature paths and twelve item paths filled, with your catalog totals staying the same.
 
-In Kit Editor, choose the merged file under **Import catalog JSON**, then select **Validate & Import Catalog**. Save the original export as your backup. The editor validates saved Kits and Gift Rules against the merged file. Search for **Megaraptor** and **Flint** and open a familiar Kit to check your entries. The updated editor accepts catalog files up to 4 MB.
+In Kit Editor, choose the merged file under **Import catalog JSON**, then select **Validate & Import Catalog**. Save the original export as your backup. The editor validates saved Kits and Gift Rules against the merged file. Search for **Megaraptor** and **Flint**, check their Blueprint path fields, and open a familiar Kit. The updated editor accepts catalog files up to 4 MB.
 
 ## Earlier taxonomy update
 

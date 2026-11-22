@@ -4,7 +4,7 @@
     {
       "id": "Bison",
       "name": "Bison",
-      "blueprint": null,
+      "blueprint": "/Game/ASA/Dinos/Bison/Bison_Character_BP.Bison_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -12,12 +12,12 @@
       "tags": [
         "Ragnarok"
       ],
-      "source": "Studio Wildcard: Ragnarok Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/bison/spawn-command"
     },
     {
       "id": "Griffin",
       "name": "Griffin",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/Dinos/Griffin/Griffin_Character_BP.Griffin_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -26,12 +26,12 @@
         "Ragnarok",
         "Flying"
       ],
-      "source": "Studio Wildcard: Ragnarok Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/griffin/spawn-command"
     },
     {
       "id": "Megaraptor",
       "name": "Megaraptor",
-      "blueprint": null,
+      "blueprint": "/Game/ASA/Dinos/Megaraptor/ValMegaraptor_Character_BP.ValMegaraptor_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -39,12 +39,12 @@
       "tags": [
         "Valguero"
       ],
-      "source": "Studio Wildcard: Valguero Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/megaraptor/spawn-command"
     },
     {
       "id": "Deinonychus",
       "name": "Deinonychus",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/Dinos/Raptor/Uberraptor/Deinonychus_Character_BP.Deinonychus_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -52,12 +52,12 @@
       "tags": [
         "Valguero"
       ],
-      "source": "Studio Wildcard: Valguero Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/deinonychus/spawn-command"
     },
     {
       "id": "IceGolem",
       "name": "Ice Golem",
-      "blueprint": null,
+      "blueprint": "/Game/ASA/Dinos/IceGolem/IceGolem_Character_BP.IceGolem_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -65,12 +65,12 @@
       "tags": [
         "Valguero"
       ],
-      "source": "Studio Wildcard: Valguero Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/ice-elemental"
     },
     {
       "id": "ChalkGolem",
       "name": "Chalk Golem",
-      "blueprint": null,
+      "blueprint": "/Game/ASA/Dinos/ChalkGolem/ChalkGolem_Character_BP.ChalkGolem_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -78,124 +78,124 @@
       "tags": [
         "Valguero"
       ],
-      "source": "Studio Wildcard: Valguero Ascended release"
+      "source": "https://wikily.gg/ark-survival-ascended/dinosaurs/chalk-elemental"
     }
   ],
   "items": [
     {
       "id": "Flint",
       "name": "Flint",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Flint.PrimalItemResource_Flint",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/flint/spawn-commands"
     },
     {
       "id": "Metal",
       "name": "Metal",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Metal.PrimalItemResource_Metal",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/metal/spawn-commands"
     },
     {
       "id": "MetalIngot",
       "name": "Metal Ingot",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/metal-ingot/spawn-commands"
     },
     {
       "id": "Crystal",
       "name": "Crystal",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal.PrimalItemResource_Crystal",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/crystal/spawn-commands"
     },
     {
       "id": "Obsidian",
       "name": "Obsidian",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Obsidian.PrimalItemResource_Obsidian",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/obsidian/spawn-commands"
     },
     {
       "id": "Hide",
       "name": "Hide",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hide.PrimalItemResource_Hide",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/hide/spawn-commands"
     },
     {
       "id": "Chitin",
       "name": "Chitin",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Chitin.PrimalItemResource_Chitin",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/chitin/spawn-commands"
     },
     {
       "id": "Keratin",
       "name": "Keratin",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Keratin.PrimalItemResource_Keratin",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/keratin/spawn-commands"
     },
     {
       "id": "Sparkpowder",
       "name": "Sparkpowder",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sparkpowder.PrimalItemResource_Sparkpowder",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/sparkpowder/spawn-commands"
     },
     {
       "id": "CementingPaste",
       "name": "Cementing Paste",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
       "category": "Resources",
       "tags": [],
-      "source": "ARK Official Community Wiki: resources"
+      "source": "https://wikily.gg/ark-survival-ascended/items/cementing-paste/spawn-commands"
     },
     {
       "id": "MortarAndPestle",
       "name": "Mortar and Pestle",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_MortarAndPestle.PrimalItemStructure_MortarAndPestle",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -203,12 +203,12 @@
       "tags": [
         "Crafting Stations"
       ],
-      "source": "ARK Official Community Wiki: Mortar and Pestle"
+      "source": "https://wikily.gg/ark-survival-ascended/items/mortar-and-pestle/spawn-commands"
     },
     {
       "id": "Fabricator",
       "name": "Fabricator",
-      "blueprint": null,
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Fabricator.PrimalItemStructure_Fabricator",
       "contentPack": "base-game",
       "enabled": true,
       "verified": false,
@@ -216,7 +216,7 @@
       "tags": [
         "Crafting Stations"
       ],
-      "source": "ARK Official Community Wiki: Fabricator"
+      "source": "https://wikily.gg/ark-survival-ascended/items/fabricator/spawn-commands"
     }
   ]
 }

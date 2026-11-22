@@ -23,7 +23,11 @@ test('adds the free catalogue batch and preserves existing entries, packs, Kits 
   assert.deepEqual(catalog.packs, before.packs);
   for (const kind of ['dinosaurs', 'items']) {
     assert.deepEqual(catalog[kind].slice(0, before[kind].length), before[kind]);
-    assert.ok(catalog[kind].slice(before[kind].length).every(item => !item.verified && item.blueprint === null));
+    for (const entry of catalog[kind].slice(before[kind].length)) {
+      assert.match(entry.blueprint, /^\/Game\/[^'\s]+\.[^'\s]+$/);
+      assert.match(entry.source, /^https:\/\/wikily\.gg\/ark-survival-ascended\//);
+      assert.equal(entry.verified, false);
+    }
   }
   const config = await load('./streamer-config-v2.json');
   assert.deepEqual(validateConfiguration(config, catalog), validateConfiguration(config, before));
@@ -53,9 +57,54 @@ test('does not overwrite a custom entry or duplicate its Blueprint under a new I
   const { catalog, counts } = mergeFreeCatalog(custom, mixed);
   assert.deepEqual(catalog, validateArkCatalog(custom));
   assert.deepEqual(counts, {
-    dinosaurs: { added: 0, existing: 0, excluded: 1 },
-    items: { added: 0, existing: 2, excluded: 1 },
+    dinosaurs: { added: 0, existing: 0, excluded: 1, filledBlueprints: 0 },
+    items: { added: 0, existing: 2, excluded: 1, filledBlueprints: 0 },
   });
+});
+
+function catalogWithBlankPaths() {
+  const originalBatch = structuredClone(batch);
+  for (const entry of [...originalBatch.dinosaurs, ...originalBatch.items]) {
+    entry.blueprint = null;
+    entry.source = 'Earlier Batch 04';
+  }
+  return mergeFreeCatalog(current, originalBatch).catalog;
+}
+
+test('fills existing Batch 04 paths only when requested and retains the original metadata', () => {
+  const older = catalogWithBlankPaths();
+  const flint = older.items.find(entry => entry.id === 'Flint');
+  flint.tags = ['Local edit'];
+  flint.enabled = false;
+  assert.deepEqual(mergeFreeCatalog(older, batch).catalog, older);
+
+  const { catalog, counts } = mergeFreeCatalog(older, batch, { fillBlueprints: true });
+  assert.equal(counts.dinosaurs.filledBlueprints, 6);
+  assert.equal(counts.items.filledBlueprints, 12);
+  assert.equal(counts.items.added, 0);
+  const expected = { ...flint, blueprint: batch.items.find(entry => entry.id === 'Flint').blueprint };
+  assert.deepEqual(catalog.items.find(entry => entry.id === 'Flint'), expected);
+  assert.equal(flint.blueprint, null);
+  assert.deepEqual(mergeFreeCatalog(catalog, batch, { fillBlueprints: true }).catalog, catalog);
+});
+
+test('preserves existing, verified, renamed, and paid entries and skips duplicate paths during fill', () => {
+  const older = catalogWithBlankPaths();
+  const find = id => older.items.find(entry => entry.id === id);
+  find('Metal').blueprint = '/Game/Custom/Metal.Metal';
+  find('Crystal').verified = true;
+  find('Hide').name = 'Custom Hide';
+  find('Chitin').contentPack = 'fantastic-tames';
+  older.items.push({
+    ...find('Keratin'), id: 'CustomKeratin', name: 'Custom Keratin',
+    blueprint: batch.items.find(entry => entry.id === 'Keratin').blueprint + '_C',
+  });
+  const before = validateArkCatalog(older);
+  const { catalog, counts } = mergeFreeCatalog(before, batch, { fillBlueprints: true });
+  assert.equal(counts.items.filledBlueprints, 7);
+  for (const id of ['Metal', 'Crystal', 'Hide', 'Chitin', 'Keratin']) {
+    assert.deepEqual(catalog.items.find(entry => entry.id === id), before.items.find(entry => entry.id === id));
+  }
 });
 
 test('requires a v2 source and rejects a premium label on base-game', () => {
@@ -85,4 +134,6 @@ test('CLI previews without writing, saves a new file, and refuses overwrites', a
   await assert.rejects(run('--out', baseline), { stderr: /EEXIST/ });
   assert.equal(await readFile(output, 'utf8'), saved);
   assert.equal(await readFile(baseline, 'utf8'), original);
+  await writeFile(baseline, JSON.stringify(catalogWithBlankPaths()));
+  assert.match((await run('--fill-blueprints')).stdout, /items: 12 blank Blueprint paths filled/);
 });
