@@ -20,6 +20,18 @@
       "enabledByDefault": false
     },
     {
+      "id": "dragontopia",
+      "name": "Dragontopia",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "astraeos",
+      "name": "Astraeos",
+      "premium": true,
+      "enabledByDefault": false
+    },
+    {
       "id": "bobs-tall-tales",
       "name": "Bob's Tall Tales",
       "premium": true,

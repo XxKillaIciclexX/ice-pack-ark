@@ -33,8 +33,12 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}
     const ids = new Set([...currentById.keys()].map(id => id.toLowerCase()));
     const paths = new Set(catalog[kind].map(entry => pathKey(entry.blueprint)).filter(Boolean));
     const result = { added: 0, existing: 0, excluded: 0, filledBlueprints: 0 };
-    for (const entry of incoming[kind]) {
-      if (entry.contentPack !== 'base-game') {
+    for (const [index, entry] of incoming[kind].entries()) {
+      const { requiredPaidDlc = [] } = batch[kind][index];
+      if (!Array.isArray(requiredPaidDlc) || requiredPaidDlc.some(pack => typeof pack !== 'string' || !pack.trim())) {
+        throw new Error(`requiredPaidDlc must be an array of pack names or IDs for ${entry.id}.`);
+      }
+      if (entry.contentPack !== 'base-game' || requiredPaidDlc.length > 0) {
         result.excluded++;
         continue;
       }

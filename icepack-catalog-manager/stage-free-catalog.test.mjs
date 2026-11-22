@@ -114,6 +114,33 @@ test('requires a v2 source and rejects a premium label on base-game', () => {
   assert.throws(() => mergeFreeCatalog(current, premium), /base-game pack must be marked non-premium/);
 });
 
+test('excludes each declared paid entitlement even on a free map or with a base-game label', () => {
+  const packIds = ['tides-of-fortune', 'dragontopia', 'lost-colony', 'astraeos', 'bobs-tall-tales', 'fantastic-tames'];
+  const incoming = {
+    schemaVersion: 2,
+    dinosaurs: packIds.map((pack, index) => ({
+      id: `Fixture-${index}`, name: `Fixture ${index}`, contentPack: 'base-game',
+      tags: ['Ragnarok'], requiredPaidDlc: [pack],
+    })),
+    items: [{ id: 'FreeFixture', name: 'Free resource', requiredPaidDlc: [] }],
+  };
+  const { catalog, counts } = mergeFreeCatalog(current, incoming);
+  assert.deepEqual(catalog.dinosaurs, validateArkCatalog(current).dinosaurs);
+  assert.equal(counts.dinosaurs.excluded, 6);
+  assert.equal(counts.items.added, 1);
+});
+
+test('rejects invalid requirement metadata and skips paid entries during Blueprint fill', () => {
+  const older = catalogWithBlankPaths();
+  const flint = batch.items.find(entry => entry.id === 'Flint');
+  const incoming = { schemaVersion: 2, dinosaurs: [], items: [{ ...flint, requiredPaidDlc: ['Tides of Fortune'] }] };
+  const { catalog, counts } = mergeFreeCatalog(older, incoming, { fillBlueprints: true });
+  assert.equal(catalog.items.find(entry => entry.id === 'Flint').blueprint, null);
+  assert.equal(counts.items.excluded, 1);
+  incoming.items[0].requiredPaidDlc = null;
+  assert.throws(() => mergeFreeCatalog(older, incoming), /requiredPaidDlc must be an array/);
+});
+
 test('CLI previews without writing, saves a new file, and refuses overwrites', async t => {
   const root = await mkdtemp(join(tmpdir(), 'icepack-free-catalog-'));
   t.after(() => rm(root, { recursive: true, force: true }));

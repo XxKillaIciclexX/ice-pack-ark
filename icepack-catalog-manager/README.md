@@ -18,6 +18,12 @@ The first command reports additions, matches, and filled paths. The second write
 
 In Kit Editor, choose the merged file under **Import catalog JSON**, then select **Validate & Import Catalog**. Save the original export as your backup. The editor validates saved Kits and Gift Rules against the merged file. Search for **Megaraptor** and **Flint**, check their Blueprint path fields, and open a familiar Kit. The updated editor accepts catalog files up to 4 MB.
 
+### Classify paid DLC
+
+Treat a creature as paid when it requires Tides of Fortune, Dragontopia, Lost Colony, Astraeos, Bob's Tall Tales, or Fantastic Tames. Check the requirement per creature, including creatures that spawn on free maps. Apply the same check to items and resources. [Studio Wildcard release notes](https://survivetheark.com/index.php?/forums/topic/773981-ark-tides-of-fortune-dragontopia-and-genesis-part-1-are-out-now/) · [Fantastic Tames announcement](https://survivetheark.com/index.php?/forums/topic/735257-ark-fantastic-tames-and-the-center-ascended-are-live/)
+
+When reviewing a batch, use `requiredPaidDlc` on the source entry to record any known paid requirements. It accepts pack names or IDs, for example `["lost-colony"]`. The free staging command excludes entries with a paid requirement even when their source labels them `base-game`. Review unknown entitlements before labeling an entry free.
+
 ## Earlier taxonomy update
 
 This is a **patch** for the existing `icepack-catalog-manager` folder. **Do not replace** `ark-catalog-v2.json`, `streamer-config-v2.json`, or `content-prefs.json` from your working installation.

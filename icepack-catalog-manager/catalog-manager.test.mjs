@@ -8,7 +8,11 @@ const fixture=JSON.parse(fs.readFileSync(new URL('./ark-catalog-v2.json',import.
 test('base game is enabled by default; paid packs are disabled',()=>{
  const result=validateArkCatalog(fixture);
  assert.equal(result.packs.find(p=>p.id==='base-game').enabledByDefault,true);
- assert.equal(result.packs.find(p=>p.id==='fantastic-tames').enabledByDefault,false);
+ for (const id of ['tides-of-fortune','dragontopia','lost-colony','astraeos','bobs-tall-tales','fantastic-tames']) {
+  const pack=result.packs.find(p=>p.id===id);
+  assert.equal(pack?.premium,true,id);
+  assert.equal(pack.enabledByDefault,false,id);
+ }
 });
 test('catalog contains blueprint paths and conservatively unverified entries',()=>{
  const result=validateArkCatalog(fixture);
