@@ -60,6 +60,32 @@ export function buildPlanCommands(plan,catalog,enabledPacks,playerId) {
   if(!cmds.length)throw Error('Rule produces no commands');
   return cmds;
 }
+
+function summarizePreparation({config, catalog, enabledPacks}) {
+  const kits = new Map(config.kits.map(kit => [kit.id, kit.entries]));
+  const summary = {prepared: 0, blocked: 0, disabled: 0, blockedExamples: []};
+  for (const rule of config.rules) {
+    if (!rule.enabled) {
+      summary.disabled++;
+      continue;
+    }
+    // The loader has validated every Kit reference and limited Kits to 50 entries.
+    const reward = rule.reward;
+    const actions = reward.type === 'kit' ? kits.get(reward.kitId) : [reward];
+    try {
+      // The planner only requires a valid numeric target. Actual target readiness is reported separately.
+      buildPlanCommands({actions}, catalog, enabledPacks, '1');
+      summary.prepared++;
+    } catch (error) {
+      summary.blocked++;
+      if (summary.blockedExamples.length < 3) {
+        summary.blockedExamples.push({ruleId: rule.id, gift: rule.giftName ?? rule.giftId, reason: error.message});
+      }
+    }
+  }
+  return summary;
+}
+
 export class CustomRulesLane {
   constructor({send,log=()=>{},now=()=>Date.now(),sourceDir,wait=delay}={}){
     if(typeof send!=='function')throw Error('Missing RCON sender');
@@ -71,8 +97,17 @@ export class CustomRulesLane {
     this.activeDelivery=null;
     this.lastDelivery=null;
     this.deliveryHistory=[];
+    this.preparation=null;
   }
-  reload(){if(this.mode==='live'||this.inflight)throw Error('Disable live rules before reloading');const saved=loadSavedRules(this.sourceDir);this.saved=saved;this.log(`Custom rules loaded: ${saved.config.rules.length} rules, ${saved.config.kits.length} Kits`);return this.state();}
+  reload() {
+    if (this.mode === 'live' || this.inflight) throw Error('Disable live rules before reloading');
+    const saved = loadSavedRules(this.sourceDir);
+    const preparation = summarizePreparation(saved);
+    this.saved = saved;
+    this.preparation = preparation;
+    this.log(`Custom rules loaded: ${saved.config.rules.length} rules, ${saved.config.kits.length} Kits`);
+    return this.state();
+  }
   configure({playerId}){if(this.mode==='live'||this.inflight)throw Error('Stop live rules before changing player');if(!validPlayerId(playerId))throw Error('Invalid Specimen Implant ID');this.playerId=String(playerId).trim();return this.state();}
   setMode(mode,confirmation=''){
     if(!['off','preview','live'].includes(mode))throw Error('Invalid mode');
@@ -102,6 +137,7 @@ export class CustomRulesLane {
     return {
       mode:this.mode,loaded:!!this.saved,ruleCount:this.saved?.config.rules.length??0,
       loadedFingerprints:this.saved?.fingerprints ? {...this.saved.fingerprints} : null,
+      preparation:this.preparation && structuredClone(this.preparation),
       kitCount:this.saved?.config.kits.length??0,playerIdConfigured:!!this.playerId,
       queued:this.queue.length,inflight:this.inflight,history:this.history.slice(-8).reverse(),
       activeDelivery,lastDelivery:this.lastDelivery && {...this.lastDelivery},

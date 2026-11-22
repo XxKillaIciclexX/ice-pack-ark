@@ -20,3 +20,5 @@ Use **Review a saved report** to reopen a version 1 delivery export. The browser
 Use **Filter by gift** and **Filter by outcome** to narrow the current and saved tables together. Gift search ignores case and accepts partial names. **Clear filters** restores both views. The JSON download still contains all current-session outcomes.
 
 The Custom Gift Rules state includes SHA-256 fingerprints of the rules, catalog, and optional content preferences actually loaded by the engine. Disk edits and failed reloads keep the previous fingerprints, so a migration verifier can distinguish stale rules even when counts match.
+
+The same state includes a preparation summary from the last successful reload. It counts enabled rules the command builder can prepare, blocked rules, and disabled rules. It lists reasons for up to three blocked rules and leaves Preview history, queues, and RCON untouched.

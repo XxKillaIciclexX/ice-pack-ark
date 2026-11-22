@@ -214,3 +214,48 @@ test('loaded fingerprints stay tied to the bytes actually parsed until a success
   assert.equal(reloaded.loadedFingerprints.rules, sha(JSON.stringify(revised)));
   assert.equal(reloaded.loadedFingerprints.contentPrefs, sha(prefs));
 });
+
+test('preparation summarizes loaded rules without simulating gifts or sending commands', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'icepack-preparation-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const rulesPath = join(dir, 'streamer-config-v2.json');
+  const unsupported = {
+    ...kit.rules[0],
+    giftId: null,
+    reward: { ...dinosaur, status: 'tamed' },
+  };
+  const config = {
+    ...kit,
+    rules: [
+      kit.rules[0],
+      { ...unsupported, id: 'disabled', giftName: 'Disabled', enabled: false },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        ...unsupported, id: `blocked-${i}`, giftName: `Blocked ${i}`,
+      })),
+    ],
+  };
+  await writeFile(join(dir, 'ark-catalog-v2.json'), JSON.stringify(base));
+  await writeFile(rulesPath, JSON.stringify(config));
+  const sent = [];
+  const lane = new CustomRulesLane({ sourceDir: dir, send: async command => sent.push(command) });
+  assert.equal(lane.state().preparation, null);
+  const state = lane.reload();
+  assert.equal(state.mode, 'off');
+  assert.equal(state.playerIdConfigured, false);
+  assert.equal(state.preparation.prepared, 1);
+  assert.equal(state.preparation.blocked, 4);
+  assert.equal(state.preparation.disabled, 1);
+  assert.equal(state.preparation.blockedExamples.length, 3);
+  assert.match(state.preparation.blockedExamples[0].reason, /Tamed dinosaurs/);
+  state.preparation.blockedExamples.length = 0;
+  const before = lane.state();
+  await writeFile(rulesPath, '{');
+  assert.throws(() => lane.reload());
+  assert.deepEqual(lane.state(), before);
+  assert.deepEqual(before.history, []);
+  assert.deepEqual(before.deliveryHistory, []);
+  assert.deepEqual(sent, []);
+  assert.doesNotMatch(JSON.stringify(before.preparation), /GiveItemToPlayer|ScriptCommand/);
+  await writeFile(rulesPath, JSON.stringify(kit));
+  assert.deepEqual(lane.reload().preparation, { prepared: 1, blocked: 0, disabled: 0, blockedExamples: [] });
+});
