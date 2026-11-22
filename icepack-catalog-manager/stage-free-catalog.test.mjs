@@ -14,6 +14,7 @@ const script = fileURLToPath(new URL('./stage-free-catalog.mjs', import.meta.url
 const load = url => readFile(new URL(url, import.meta.url), 'utf8').then(JSON.parse);
 const current = await load('./ark-catalog-v2.json');
 const batch = await load('./catalog-imports/free-catalog-batch-04.json');
+const officialBatch = await load('./catalog-imports/official-catalog-batch-05.json');
 
 test('adds the free catalogue batch and preserves existing entries, packs, Kits and gift rules', async () => {
   const { catalog, counts } = mergeFreeCatalog(current, batch);
@@ -139,6 +140,48 @@ test('rejects invalid requirement metadata and skips paid entries during Bluepri
   assert.equal(counts.items.excluded, 1);
   incoming.items[0].requiredPaidDlc = null;
   assert.throws(() => mergeFreeCatalog(older, incoming), /requiredPaidDlc must be an array/);
+});
+
+test('Batch 05 retains free content and assigns official paid examples to their DLC', async () => {
+  const baseline = mergeFreeCatalog(current, batch).catalog;
+  const free = mergeFreeCatalog(baseline, officialBatch).catalog;
+  assert.ok([...free.dinosaurs, ...free.items].every(entry => entry.contentPack === 'base-game'));
+  assert.ok(free.dinosaurs.some(entry => entry.name === 'Palaeoctopus'));
+  assert.ok(free.items.some(entry => entry.name === 'Cementing Paste' && entry.category === 'Resources'));
+  assert.ok(free.items.some(entry => entry.name === 'Metal Pick' && entry.category === 'Weapons & Tools'));
+
+  const full = mergeFreeCatalog(baseline, officialBatch, { includePaid: true }).catalog;
+  for (const [name, pack] of [
+    ['Tidepup', 'tides-of-fortune'], ['Gargantar', 'dragontopia'], ['Elderclaw', 'lost-colony'],
+    ['Boaratos', 'astraeos'], ['Cosmo', 'bobs-tall-tales'], ['Enigmasaur', 'fantastic-tames'],
+  ]) {
+    assert.equal(full.dinosaurs.find(entry => entry.name === name)?.contentPack, pack, name);
+    assert.equal(full.packs.find(entry => entry.id === pack)?.enabledByDefault, false, pack);
+  }
+  assert.equal(full.items.find(entry => entry.name === 'Astraeos Boss Helmet')?.contentPack, 'astraeos');
+  assert.ok([...full.dinosaurs, ...full.items].every(entry => entry.verified === false));
+  const config = await load('./streamer-config-v2.json');
+  assert.deepEqual(validateConfiguration(config, full), validateConfiguration(config, baseline));
+  assert.deepEqual(mergeFreeCatalog(full, officialBatch, { includePaid: true }).catalog, full);
+});
+
+test('paid import adds missing DLC definitions disabled and rejects contradictory pack markings', () => {
+  const baseline = { schemaVersion: 2, dinosaurs: [], items: [] };
+  const pack = { id: 'astraeos', name: 'Astraeos', premium: true, enabledByDefault: true };
+  const incoming = {
+    ...baseline,
+    packs: [...validateArkCatalog(baseline).packs, pack],
+    dinosaurs: [
+      { id: 'PaidFixture', name: 'Paid Fixture', contentPack: pack.id, requiredPaidDlc: ['Astraeos'] },
+      { id: 'WrongFixture', name: 'Wrong Fixture', contentPack: pack.id, requiredPaidDlc: ['lost-colony'] },
+      { id: 'FreeFixture', name: 'Free Fixture', requiredPaidDlc: ['Astraeos'] },
+    ],
+  };
+  const { catalog, counts } = mergeFreeCatalog(baseline, incoming, { includePaid: true });
+  assert.equal(counts.dinosaurs.added, 1);
+  assert.equal(counts.dinosaurs.excluded, 2);
+  assert.deepEqual(catalog.dinosaurs.map(entry => entry.id), ['PaidFixture']);
+  assert.deepEqual(catalog.packs.find(entry => entry.id === pack.id), { ...pack, enabledByDefault: false });
 });
 
 test('CLI previews without writing, saves a new file, and refuses overwrites', async t => {

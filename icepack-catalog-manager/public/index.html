@@ -9,6 +9,7 @@
 <hr style="border-color:#31445e;margin:18px 0">
 <div class="catalog-tools"><label>Entry type<select id="catalog-type"><option value="dinosaurs">Dinosaurs</option><option value="items">Items</option></select></label><label>Search names, IDs, or paths<input id="catalog-search" placeholder="e.g. Rex, Stone, PrimalItem"></label><label>Filter content pack<select id="catalog-pack"><option value="">All enabled packs</option></select></label><label>Filter verification<select id="catalog-verified"><option value="all">All entries</option><option value="verified">Verified paths only</option><option value="unverified">Unverified paths</option></select></label><label>Category<select id="catalog-category"></select></label><label>Role / subcategory tag<select id="catalog-tag"></select></label></div>
 <p id="catalog-count"></p><div id="catalog-list" class="catalog-list"></div>
+<div class="toolbar"><button id="catalog-prev" type="button" disabled>Previous page</button><button id="catalog-next" type="button" disabled>Next page</button></div>
 <h3>Add / Update catalog entry</h3><div class="catalog-tools"><label>Type<select id="entry-type"><option value="dinosaurs">Dinosaur</option><option value="items">Item</option></select></label><label>Content pack<select id="entry-pack"></select></label><label>Internal ID<input id="entry-id" placeholder="e.g. Ankylosaurus"></label><label>Display name<input id="entry-name" placeholder="e.g. Ankylosaurus"></label><label>Category<select id="entry-category"></select></label><label>Tags (comma-separated)<input id="entry-tags" placeholder="e.g. Flier, Utility, Transport"></label><label>Blueprint class path<input id="entry-blueprint" placeholder="/Game/.../Asset.Asset_C"></label><label class="inline"><input id="entry-verified" type="checkbox"> Path manually verified</label><label class="inline"><input id="entry-enabled" type="checkbox" checked> Entry enabled</label></div>
 <div class="toolbar" style="margin-top:12px"><button id="entry-save">Save catalog entry</button><button id="catalog-export">Export catalog JSON</button></div>
 <h3>Import catalog JSON</h3><p>Import is a complete catalog replacement, not a merge. The editor will reject changes that would break saved Kits. Export a backup first.</p><label>Choose JSON file from your computer<input id="catalog-import-file" type="file" accept=".json,application/json"></label><p class="muted">Recommended for larger catalogs. You can also paste JSON below.</p><textarea id="catalog-import" placeholder="Or paste catalog JSON here"></textarea><div class="toolbar"><button id="catalog-import-save">Validate & Import Catalog</button></div><div id="catalog-message" aria-live="polite"></div>
@@ -44,8 +45,15 @@ function checkbox(value,onchange){const n=el('input',{type:'checkbox',checked:va
 async function api(route,payload){const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json','X-Icepack-Editor':'1'},body:JSON.stringify(payload)});const result=await r.json();if(!r.ok)throw Error(result.error||'Request failed');return result;}
 function msg(text,error=false){$('message').className=error?'error':'success';$('message').textContent=text;}
 function renderList(){const host=$('kit-list');host.replaceChildren();$('count').textContent=`${config.kits.length} saved Kits`;for(const kit of config.kits){const b=el('button',{text:kit.name});if(current?.id===kit.id)b.classList.add('selected');b.addEventListener('click',()=>{current=structuredClone(kit);render();});host.append(b);}}
+function packLabel(pack){return pack.name+(pack.premium?' · Paid':'');}
+function rewardLabel(entry){
+ const pack=catalog.packs.find(candidate=>candidate.id===entry.contentPack);
+ if(!pack||pack.id==='base-game')return entry.name;
+ const status=prefs.enabledPacks.includes(pack.id)?'':' · Disabled';
+ return entry.name+' ('+packLabel(pack)+status+')';
+}
 function available(group){return group.filter(x=>x.enabled&&prefs.enabledPacks.includes(x.contentPack||'base-game'));}
-function drawEntries(){const host=$('entries');host.replaceChildren();if(!current)return;current.entries.forEach((entry,index)=>{const outer=el('div',{class:'entry'});const row=el('div',{class:'toolbar'});const label=el('strong',{text:`${index+1}. ${entry.type==='dinosaur'?'Dinosaur':'Item'}`});const remove=el('button',{text:'Remove'});remove.addEventListener('click',()=>{current.entries.splice(index,1);drawEntries();});row.append(label,remove);outer.append(row);const grid=el('div',{class:'fields'});const group=entry.type==='dinosaur'?catalog.dinosaurs:catalog.items;const filtered=available(group);if(!filtered.some(x=>x.id===entry[entry.type==='dinosaur'?'creatureId':'itemId'])){const existing=group.find(x=>x.id===entry[entry.type==='dinosaur'?'creatureId':'itemId']);if(existing)filtered.unshift(existing);}const key=entry.type==='dinosaur'?'creatureId':'itemId';grid.append(field(entry.type==='dinosaur'?'Dinosaur':'Item',choice(filtered.map(x=>[x.id,x.name+(prefs.enabledPacks.includes(x.contentPack)?'':' (disabled pack)')]),entry[key],v=>entry[key]=v)));
+function drawEntries(){const host=$('entries');host.replaceChildren();if(!current)return;current.entries.forEach((entry,index)=>{const outer=el('div',{class:'entry'});const row=el('div',{class:'toolbar'});const label=el('strong',{text:`${index+1}. ${entry.type==='dinosaur'?'Dinosaur':'Item'}`});const remove=el('button',{text:'Remove'});remove.addEventListener('click',()=>{current.entries.splice(index,1);drawEntries();});row.append(label,remove);outer.append(row);const grid=el('div',{class:'fields'});const group=entry.type==='dinosaur'?catalog.dinosaurs:catalog.items;const filtered=available(group);if(!filtered.some(x=>x.id===entry[entry.type==='dinosaur'?'creatureId':'itemId'])){const existing=group.find(x=>x.id===entry[entry.type==='dinosaur'?'creatureId':'itemId']);if(existing)filtered.unshift(existing);}const key=entry.type==='dinosaur'?'creatureId':'itemId';grid.append(field(entry.type==='dinosaur'?'Dinosaur':'Item',choice(filtered.map(x=>[x.id,rewardLabel(x)]),entry[key],v=>entry[key]=v)));
 if(entry.type==='dinosaur'){grid.append(field('Level',number(entry.level,1,150,v=>entry.level=v)));grid.append(field('Status',choice([['wild','Wild'],['tamed','Tamed']],entry.status,v=>entry.status=v)));grid.append(field('Quantity',number(entry.quantity,1,20,v=>entry.quantity=v)));}
 else grid.append(field('Quantity',number(entry.quantity,1,10000,v=>entry.quantity=v)));
 grid.append(field('Announcement',checkbox(entry.announcement,v=>entry.announcement=v)));outer.append(grid);host.append(outer);});}
@@ -66,20 +74,32 @@ function fillSelect(id,options,allLabel){const s=$(id),old=s.value;s.replaceChil
 function renderEntryCategories(){fillSelect('entry-category',CATEGORIES[$('entry-type').value]);}
 $('entry-type').addEventListener('change',renderEntryCategories);
 renderEntryCategories();
+const catalogPageSize=250;
+let catalogPage=0;
 function renderCatalog(){
- const hosts=$('packs');hosts.replaceChildren();for(const pack of catalog.packs){const label=el('label',{class:'inline'});const c=checkbox(prefs.enabledPacks.includes(pack.id),async checked=>{try{const enabledPacks=checked?[...prefs.enabledPacks,pack.id]:prefs.enabledPacks.filter(x=>x!==pack.id);const response=await api('/api/content/preferences',{enabledPacks});prefs=response.contentPrefs;renderCatalog();drawEntries();}catch(e){cmsg(e.message,true);renderCatalog();}});if(pack.id==='base-game')c.disabled=true;label.append(c,el('span',{text:pack.name+(pack.premium?' · Paid':'')}));hosts.append(label);}
- for(const id of ['catalog-pack','entry-pack']){const s=$(id),old=s.value;s.replaceChildren();if(id==='catalog-pack')s.append(el('option',{value:'',text:'All enabled packs'}));for(const p of catalog.packs)if(id==='entry-pack'||prefs.enabledPacks.includes(p.id))s.append(el('option',{value:p.id,text:p.name}));s.value=[...s.options].some(x=>x.value===old)?old:id==='entry-pack'?'base-game':'';}
+ const hosts=$('packs');hosts.replaceChildren();for(const pack of catalog.packs){const label=el('label',{class:'inline'});const c=checkbox(prefs.enabledPacks.includes(pack.id),async checked=>{try{const enabledPacks=checked?[...prefs.enabledPacks,pack.id]:prefs.enabledPacks.filter(x=>x!==pack.id);const response=await api('/api/content/preferences',{enabledPacks});prefs=response.contentPrefs;catalogPage=0;renderCatalog();drawEntries();drawRuleTargets();}catch(e){cmsg(e.message,true);renderCatalog();}});if(pack.id==='base-game')c.disabled=true;label.append(c,el('span',{text:packLabel(pack)}));hosts.append(label);}
+ for(const id of ['catalog-pack','entry-pack']){const s=$(id),old=s.value;s.replaceChildren();if(id==='catalog-pack')s.append(el('option',{value:'',text:'All enabled packs'}));for(const p of catalog.packs)if(id==='entry-pack'||prefs.enabledPacks.includes(p.id))s.append(el('option',{value:p.id,text:packLabel(p)}));s.value=[...s.options].some(x=>x.value===old)?old:id==='entry-pack'?'base-game':'';}
  const type=$('catalog-type').value;fillSelect('catalog-category',CATEGORIES[type],'All categories');const tags=[...new Set(catalog[type].flatMap(x=>x.tags||[]))].sort();fillSelect('catalog-tag',tags,'All roles / subcategories');const category=$('catalog-category').value,tag=$('catalog-tag').value,search=$('catalog-search').value.trim().toLowerCase(),pack=$('catalog-pack').value,v=$('catalog-verified').value;
  const entries=catalog[type].filter(x=>x.enabled&&prefs.enabledPacks.includes(x.contentPack)).filter(x=>(!pack||x.contentPack===pack)&&(v==='all'||x.verified===(v==='verified'))&&(!category||x.category===category)&&(!tag||(x.tags||[]).includes(tag))&&(!search||[x.id,x.name,x.blueprint,x.category,...(x.tags||[])].some(y=>String(y||'').toLowerCase().includes(search))));
- $('catalog-count').textContent=entries.length+' visible '+(type==='dinosaurs'?'dinosaurs':'items')+' · '+catalog[type].length+' total catalog entries';
- const host=$('catalog-list');host.replaceChildren();for(const x of entries.slice(0,250)){const row=el('div',{class:'catalog-row'});const d=el('div');d.append(el('strong',{text:x.name}),el('div',{class:'muted',text:x.id+' · '+x.contentPack+' · '+x.category+' · '+(x.tags||[]).join(', ')+' · '+(x.verified?'Verified':'Unverified')}),el('div',{class:'muted',text:x.blueprint||'No Blueprint path'}));const btn=el('button',{text:'Edit'});btn.addEventListener('click',()=>{$('entry-type').value=type;renderEntryCategories();$('entry-pack').value=x.contentPack;$('entry-id').value=x.id;$('entry-name').value=x.name;$('entry-category').value=x.category;$('entry-tags').value=(x.tags||[]).join(', ');$('entry-blueprint').value=x.blueprint||'';$('entry-verified').checked=x.verified;$('entry-enabled').checked=x.enabled;});row.append(d,btn);host.append(row);}if(entries.length>250)host.append(el('small',{text:'Showing first 250 results. Narrow your search.'}));
+ catalogPage=Math.min(catalogPage,Math.max(0,Math.ceil(entries.length/catalogPageSize)-1));
+ const offset=catalogPage*catalogPageSize, end=Math.min(entries.length,offset+catalogPageSize);
+ const shown=entries.length?`Showing ${offset+1}–${end} of ${entries.length}`:'Showing 0';
+ $('catalog-count').textContent=`${shown} matching ${type==='dinosaurs'?'creatures':'items'} · ${catalog[type].length} total catalog entries`;
+ $('catalog-prev').disabled=catalogPage===0;
+ $('catalog-next').disabled=end>=entries.length;
+ const packLabels=new Map(catalog.packs.map(pack=>[pack.id,packLabel(pack)]));
+ const host=$('catalog-list');host.replaceChildren();for(const x of entries.slice(offset,end)){const row=el('div',{class:'catalog-row'});const d=el('div');d.append(el('strong',{text:x.name}),el('div',{class:'muted',text:x.id+' · '+packLabels.get(x.contentPack)+' · '+x.category+' · '+(x.tags||[]).join(', ')+' · '+(x.verified?'Verified':'Unverified')}),el('div',{class:'muted',text:x.blueprint||'No Blueprint path'}));const btn=el('button',{text:'Edit'});btn.addEventListener('click',()=>{$('entry-type').value=type;renderEntryCategories();$('entry-pack').value=x.contentPack;$('entry-id').value=x.id;$('entry-name').value=x.name;$('entry-category').value=x.category;$('entry-tags').value=(x.tags||[]).join(', ');$('entry-blueprint').value=x.blueprint||'';$('entry-verified').checked=x.verified;$('entry-enabled').checked=x.enabled;});row.append(d,btn);host.append(row);}
 }
-for(const id of ['catalog-type','catalog-search','catalog-pack','catalog-verified','catalog-category','catalog-tag'])$(id).addEventListener(id==='catalog-search'?'input':'change',renderCatalog);
+for(const id of ['catalog-type','catalog-search','catalog-pack','catalog-verified','catalog-category','catalog-tag']) {
+ $(id).addEventListener(id==='catalog-search'?'input':'change',()=>{catalogPage=0;renderCatalog();});
+}
+$('catalog-prev').addEventListener('click',()=>{catalogPage--;renderCatalog();});
+$('catalog-next').addEventListener('click',()=>{catalogPage++;renderCatalog();});
 $('entry-save').addEventListener('click',async()=>{try{
  const type=$('entry-type').value,id=$('entry-id').value.trim();if(!id)throw Error('Entry ID required');
  const entry={id,name:$('entry-name').value.trim(),blueprint:$('entry-blueprint').value.trim()||null,contentPack:$('entry-pack').value,verified:$('entry-verified').checked,enabled:$('entry-enabled').checked,category:$('entry-category').value,tags:$('entry-tags').value.split(',').map(x=>x.trim()).filter(Boolean),source:'manual'};
  const next=structuredClone(catalog);const idx=next[type].findIndex(x=>x.id===id);if(idx<0)next[type].push(entry);else next[type][idx]=entry;
- const response=await api('/api/catalog/import',{catalog:next});catalog=response.catalog;prefs=response.contentPrefs;renderCatalog();drawEntries();cmsg('Catalog entry saved. No ARK commands sent.');
+ const response=await api('/api/catalog/import',{catalog:next});catalog=response.catalog;prefs=response.contentPrefs;catalogPage=0;renderCatalog();drawEntries();drawRuleTargets();cmsg('Catalog entry saved. No ARK commands sent.');
  }catch(e){cmsg(e.message,true);}});
 $('catalog-export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(catalog,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a',{href:url,download:'ark-catalog-v2-backup.json'});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);cmsg('Catalog exported.');});
 $('catalog-import-save').addEventListener('click',async()=>{try{
@@ -91,7 +111,7 @@ $('catalog-import-save').addEventListener('click',async()=>{try{
  const next=JSON.parse(source.replace(/^\uFEFF/,''));
  if(!confirm('Replace the complete catalog with imported JSON? Existing Kit IDs are protected.'))return;
  const response=await api('/api/catalog/import',{catalog:next});
- catalog=response.catalog;prefs=response.contentPrefs;renderCatalog();drawEntries();
+ catalog=response.catalog;prefs=response.contentPrefs;catalogPage=0;renderCatalog();drawEntries();drawRuleTargets();
  $('catalog-import-file').value='';
  cmsg('Catalog imported: '+catalog.dinosaurs.length+' dinosaurs and '+catalog.items.length+' items.');
  }catch(e){cmsg(e.message,true);}});
@@ -101,11 +121,25 @@ $('catalog-import-save').addEventListener('click',async()=>{try{
 // Gift Rule editor: persisted by Kit Editor, never sends RCON.
 function ruleMsg(text,bad=false){$('rule-message').className=bad?'error':'success';$('rule-message').textContent=text;}
 function drawRuleList(){const s=$('rule-existing'),old=s.value;s.replaceChildren(el('option',{value:'',text:'New rule'}));for(const r of config.rules)s.append(el('option',{value:r.id,text:`${r.giftName||r.giftId||r.id} — ${r.id}${r.enabled?' · Enabled':''}`}));if(config.rules.some(x=>x.id===old))s.value=old;}
-function drawRuleTargets(){const kind=$('rule-action').value,target=$('rule-target'),old=target.value;target.replaceChildren();let source=kind==='kit'?config.kits:kind==='dinosaur'?catalog.dinosaurs:catalog.items;for(const x of source){const id=x.id;target.append(el('option',{value:id,text:x.name+(x.contentPack&&x.contentPack!=='base-game'?' ('+x.contentPack+')':'')}));}if(source.some(x=>x.id===old))target.value=old;$('rule-dino-fields').style.display=kind==='dinosaur'?'grid':'none';$('rule-item-fields').style.display=kind==='item'?'block':'none';}
+function drawRuleTargets(selected=$('rule-target').value){
+ const kind=$('rule-action').value,target=$('rule-target');
+ const all=kind==='kit'?config.kits:kind==='dinosaur'?catalog.dinosaurs:catalog.items;
+ const source=kind==='kit'?all:available(all);
+ const saved=config.rules.find(rule=>rule.id===$('rule-existing').value)?.reward;
+ if(saved?.type===kind&&selected===(saved.creatureId||saved.itemId)&&!source.some(entry=>entry.id===selected)){
+  const entry=all.find(x=>x.id===selected);
+  if(entry)source.unshift(entry);
+ }
+ target.replaceChildren();
+ for(const entry of source)target.append(el('option',{value:entry.id,text:rewardLabel(entry)}));
+ if(source.some(entry=>entry.id===selected))target.value=selected;
+ $('rule-dino-fields').style.display=kind==='dinosaur'?'grid':'none';
+ $('rule-item-fields').style.display=kind==='item'?'block':'none';
+}
 function resetRule(){for(const id of ['rule-id','rule-gift-id','rule-gift-name'])$(id).value='';$('rule-existing').value='';$('rule-action').value='kit';$('rule-level').value=25;$('rule-status').value='wild';$('rule-dino-quantity').value=1;$('rule-item-quantity').value=1;$('rule-cooldown').value=30;$('rule-announcement').checked=false;$('rule-enabled').checked=false;drawRuleTargets();}
-function loadRule(r){$('rule-id').value=r.id;$('rule-gift-id').value=r.giftId||'';$('rule-gift-name').value=r.giftName||'';$('rule-cooldown').value=r.cooldown;$('rule-enabled').checked=r.enabled;$('rule-action').value=r.reward.type;drawRuleTargets();$('rule-target').value=r.reward.kitId||r.reward.creatureId||r.reward.itemId;$('rule-announcement').checked=r.reward.announcement??false;$('rule-level').value=r.reward.level??25;$('rule-status').value=r.reward.status??'wild';$('rule-dino-quantity').value=r.reward.type==='dinosaur'?r.reward.quantity:1;$('rule-item-quantity').value=r.reward.type==='item'?r.reward.quantity:1;}
+function loadRule(r){$('rule-id').value=r.id;$('rule-gift-id').value=r.giftId||'';$('rule-gift-name').value=r.giftName||'';$('rule-cooldown').value=r.cooldown;$('rule-enabled').checked=r.enabled;$('rule-action').value=r.reward.type;drawRuleTargets(r.reward.kitId||r.reward.creatureId||r.reward.itemId);$('rule-announcement').checked=r.reward.announcement??false;$('rule-level').value=r.reward.level??25;$('rule-status').value=r.reward.status??'wild';$('rule-dino-quantity').value=r.reward.type==='dinosaur'?r.reward.quantity:1;$('rule-item-quantity').value=r.reward.type==='item'?r.reward.quantity:1;}
 $('rule-existing').addEventListener('change',()=>{const r=config.rules.find(x=>x.id===$('rule-existing').value);if(r)loadRule(r);else resetRule();});
-$('rule-action').addEventListener('change',drawRuleTargets);
+$('rule-action').addEventListener('change',()=>drawRuleTargets());
 $('rule-new').addEventListener('click',resetRule);
 $('rule-save').addEventListener('click',async()=>{try{
  const type=$('rule-action').value,ref=$('rule-target').value;
@@ -114,7 +148,6 @@ $('rule-save').addEventListener('click',async()=>{try{
  const response=await api('/api/rule/save',{rule});config=response.config;drawRuleList();$('rule-existing').value=rule.id;ruleMsg('Rule saved. Reload configuration in port 3210. No RCON commands sent.');
  }catch(e){ruleMsg(e.message,true);}});
 $('rule-delete').addEventListener('click',async()=>{const id=$('rule-id').value.trim();if(!id||!confirm('Delete gift rule '+id+'?'))return;try{const r=await api('/api/rule/delete',{id});config=r.config;drawRuleList();resetRule();ruleMsg('Rule deleted. Reload port 3210 to apply.');}catch(e){ruleMsg(e.message,true);}});
-const oldDrawCatalog=renderCatalog;renderCatalog=function(){oldDrawCatalog();drawRuleTargets();};
 const oldKitRender=render;render=function(){oldKitRender();drawRuleList();drawRuleTargets();};
 resetRule();
 </script></body></html>

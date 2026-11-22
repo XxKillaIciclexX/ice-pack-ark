@@ -15,7 +15,7 @@ async function readCatalog(file) {
 
 const pathKey = value => value?.toLowerCase().replace(/_c$/, '');
 
-export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}) {
+export function mergeFreeCatalog(current, batch, { fillBlueprints = false, includePaid = false } = {}) {
   if (current?.schemaVersion !== 2 || batch?.schemaVersion !== 2) {
     throw new Error('Both catalogs must use schemaVersion 2.');
   }
@@ -27,6 +27,8 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}
       throw new Error('The base-game pack must be marked non-premium.');
     }
   }
+  const packById = new Map(incoming.packs.map(pack => [pack.id, pack]));
+  const currentPacks = new Map(catalog.packs.map(pack => [pack.id, pack]));
   const counts = {};
   for (const kind of ['dinosaurs', 'items']) {
     const currentById = new Map(catalog[kind].map(entry => [entry.id, entry]));
@@ -38,7 +40,14 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}
       if (!Array.isArray(requiredPaidDlc) || requiredPaidDlc.some(pack => typeof pack !== 'string' || !pack.trim())) {
         throw new Error(`requiredPaidDlc must be an array of pack names or IDs for ${entry.id}.`);
       }
-      if (entry.contentPack !== 'base-game' || requiredPaidDlc.length > 0) {
+      const pack = packById.get(entry.contentPack);
+      const currentPack = currentPacks.get(pack.id);
+      const free = pack.id === 'base-game' && requiredPaidDlc.length === 0;
+      const paid = pack.premium && currentPack?.premium !== false && requiredPaidDlc.every(requirement => {
+        const label = requirement.trim().toLowerCase();
+        return label === pack.id || label === pack.name.toLowerCase();
+      });
+      if (!free && !(includePaid && paid)) {
         result.excluded++;
         continue;
       }
@@ -46,7 +55,7 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}
       const blueprint = pathKey(entry.blueprint);
       const existing = currentById.get(entry.id);
       if (fillBlueprints && blueprint && !paths.has(blueprint) &&
-          existing?.contentPack === 'base-game' && existing.name === entry.name &&
+          existing?.contentPack === pack.id && existing.name === entry.name &&
           !existing.blueprint && !existing.verified) {
         existing.blueprint = entry.blueprint;
         paths.add(blueprint);
@@ -60,6 +69,11 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false } = {}
 
       ids.add(id);
       if (blueprint) paths.add(blueprint);
+      if (!currentPack) {
+        const addedPack = { ...pack, enabledByDefault: false };
+        catalog.packs.push(addedPack);
+        currentPacks.set(pack.id, addedPack);
+      }
       catalog[kind].push(entry);
       result.added++;
     }
@@ -90,18 +104,22 @@ async function main() {
     catalog: { type: 'string' },
     batch: { type: 'string' },
     'fill-blueprints': { type: 'boolean' },
+    'include-paid': { type: 'boolean' },
     out: { type: 'string' },
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--fill-blueprints] [--out <new.json>]');
+    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--fill-blueprints] [--include-paid] [--out <new.json>]');
     return;
   }
   if (!values.catalog || !values.batch) throw new Error('Provide --catalog and --batch. Use --help for usage.');
   const [current, batch] = await Promise.all([readCatalog(values.catalog), readCatalog(values.batch)]);
-  const { catalog, counts } = mergeFreeCatalog(current, batch, { fillBlueprints: values['fill-blueprints'] });
+  const { catalog, counts } = mergeFreeCatalog(current, batch, {
+    fillBlueprints: values['fill-blueprints'], includePaid: values['include-paid'],
+  });
   for (const [kind, { added, existing, excluded, filledBlueprints }] of Object.entries(counts)) {
-    console.log(`${kind}: ${added} added, ${existing} already present, ${excluded} outside Base Game + Free Expansions.`);
+    const scope = values['include-paid'] ? 'outside the selected catalog scope' : 'outside Base Game + Free Expansions';
+    console.log(`${kind}: ${added} added, ${existing} already present, ${excluded} ${scope}.`);
     if (values['fill-blueprints']) console.log(`${kind}: ${filledBlueprints} blank Blueprint paths filled.`);
   }
   if (!values.out) {
