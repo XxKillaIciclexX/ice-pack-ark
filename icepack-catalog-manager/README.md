@@ -4,7 +4,58 @@
 
 Batch 05 contains 531 creature Blueprint records and 1,677 item and resource records. It includes 376 free creature records, 1,248 free item records, and 151 resources within those free items. The paid records carry their specific pack names and stay hidden until you enable the pack in Kit Editor. Creature counts include released variants. Live paid DLC delivery requires a separate engine update. [Beacon Ark Official index](https://usebeacon.app/Games/ArkSA/Mods/2399830) · [Studio Wildcard release notes](https://survivetheark.com/index.php?/forums/topic/708761-asa-pc-patch-notes-client-v989-updated-11192026/)
 
-Export your current catalog from Kit Editor. In an updated `ice-pack-ark` development checkout, run:
+### Update a standalone Kit Editor
+
+Run the four program files from the same checkout. Mixing a new `kit-dashboard.mjs` with an older `kit-store.mjs` causes the `loadPrefs` startup error. This also applies if the working folder is named `icepack-kit-editor`.
+
+Stop Kit Editor with Ctrl+C. From the root of your `ice-pack-ark` development checkout, run the following. Use the working editor folder that holds your saved Kits. Keep the program backup path in case you need to restore those files.
+
+```powershell
+$source = (Resolve-Path -LiteralPath '.\icepack-catalog-manager' -ErrorAction Stop).Path
+$editor = (Read-Host 'Full path to your working Kit Editor folder').Trim().Trim('"')
+$editor = (Resolve-Path -LiteralPath $editor -ErrorAction Stop).Path
+$programFiles = 'config-engine.mjs', 'kit-store.mjs', 'kit-dashboard.mjs', 'public/index.html'
+
+if ($source -ne $editor) {
+    foreach ($file in $programFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $source $file) -PathType Leaf) -or
+            -not (Test-Path -LiteralPath (Join-Path $editor $file) -PathType Leaf)) {
+            throw "Missing program file $file. Check the source and Kit Editor folders."
+        }
+    }
+
+    $catalog = Join-Path $editor 'ark-catalog-v2.json'
+    $starter = Join-Path $editor 'ark-catalog-starter.json'
+    if (-not (Test-Path -LiteralPath $catalog -PathType Leaf) -and
+        -not (Test-Path -LiteralPath $starter -PathType Leaf)) {
+        throw "No existing catalog was found in $editor. Check the working Kit Editor folder."
+    }
+
+    $backup = Join-Path $editor ('program-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+    New-Item -ItemType Directory -Path (Join-Path $backup 'public') -ErrorAction Stop | Out-Null
+    foreach ($file in $programFiles) {
+        Copy-Item -LiteralPath (Join-Path $editor $file) -Destination (Join-Path $backup $file) -ErrorAction Stop
+    }
+    Write-Host "Program backup: $backup"
+
+    if (-not (Test-Path -LiteralPath $catalog)) {
+        Copy-Item -LiteralPath $starter -Destination $catalog -ErrorAction Stop
+    }
+    foreach ($file in $programFiles) {
+        Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $editor $file) -ErrorAction Stop
+    }
+}
+
+node (Join-Path $editor 'kit-dashboard.mjs')
+```
+
+The original editor used `ark-catalog-starter.json`. When that is the only catalog present, the update copies it to the filename the new editor expects. The new editor exports catalog data in schema v2. Existing catalog and configuration files are preserved.
+
+Open the address printed by Node, usually `http://127.0.0.1:3211`. Refresh with Ctrl+F5 and confirm your saved Kits are visible.
+
+### Merge and import the batch
+
+Select **Export catalog JSON** in Kit Editor. In another PowerShell window at the root of your `ice-pack-ark` development checkout, run the commands below.
 
 ```powershell
 git switch development
@@ -16,16 +67,7 @@ node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --bat
 node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --fill-blueprints --include-paid --out "$merged"
 ```
 
-If Kit Editor runs from a separate folder, stop it with Ctrl+C and update its program files from the same checkout. Keep your working data files in that folder.
-
-```powershell
-$editor = (Read-Host 'Full path to the folder where you run kit-dashboard.mjs').Trim().Trim('"')
-Copy-Item -LiteralPath '.\icepack-catalog-manager\kit-dashboard.mjs' -Destination (Join-Path $editor 'kit-dashboard.mjs')
-Copy-Item -LiteralPath '.\icepack-catalog-manager\public\index.html' -Destination (Join-Path $editor 'public\index.html')
-node (Join-Path $editor 'kit-dashboard.mjs')
-```
-
-Open [Kit Editor](http://127.0.0.1:3211), refresh with Ctrl+F5, and choose the merged file under **Import catalog JSON**. Select **Validate & Import Catalog**. The combined file uses the editor's 4 MB import limit. On the original Batch 04 catalog, this yields 535 creature and 1,677 item records, including earlier entries retained for saved Kits and rules. Search for **Palaeoctopus**, **Metal Pick**, and **Cementing Paste**. Then enable **Fantastic Tames** and confirm **Enigmasaur** appears under that pack. Use **Next page** to browse beyond the first 250 matches. Omit `--include-paid` for a free-only addition.
+Choose the merged file under **Import catalog JSON** in Kit Editor. Select **Validate & Import Catalog**. The combined file uses the editor's 4 MB import limit. On the original Batch 04 catalog, this yields 535 creature and 1,677 item records, including earlier entries retained for saved Kits and rules. Search for **Palaeoctopus**, **Metal Pick**, and **Cementing Paste**. Then enable **Fantastic Tames** and confirm **Enigmasaur** appears under that pack. Use **Next page** to browse beyond the first 250 matches. Omit `--include-paid` for a free-only addition.
 
 Batch 05 uses names and Blueprint paths from Beacon's November 2026 Ark Official download. The [batch generator](catalog-imports/build-official-catalog.py) uses confirmed pack families and release-specific exceptions. Palaeoctopus is a free Genesis creature despite its asset folder. Fantastic Tames includes Enigmasaur even where it appears on a free map. Five creature records and 400 item records still need classification or review. The generator also sets aside internal, temporary, or unavailable records. The new Blueprint entries are marked **Unverified** pending in-game testing. [Beacon snapshot API](https://api.usebeacon.app/v4/deltas/7) · [Free Palaeoctopus release](https://survivetheark.com/index.php?/forums/topic/773904-community-crunch-509-a-kraken-good-time/) · [Fantastic Tames Season 1](https://survivetheark.com/index.php?/forums/topic/774248-therizino-tlc-cerberax-and-gargantar-are-out-now/) · [Astraeos update](https://survivetheark.com/index.php?/forums/topic/774170-astraeos-heaven-abyss-update-is-now-live/)
 
