@@ -1,4 +1,5 @@
 import { lstat, open, readFile, unlink } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { validateArkCatalog } from './config-engine.mjs';
@@ -15,7 +16,7 @@ async function readCatalog(file) {
 
 const pathKey = value => value?.toLowerCase().replace(/_c$/, '');
 
-export function mergeFreeCatalog(current, batch, { fillBlueprints = false, includePaid = false } = {}) {
+export function mergeFreeCatalog(current, batch, { fillBlueprints = false, includePaid = false, verifyOnly = false } = {}) {
   if (current?.schemaVersion !== 2 || batch?.schemaVersion !== 2) {
     throw new Error('Both catalogs must use schemaVersion 2.');
   }
@@ -33,8 +34,15 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false, inclu
   for (const kind of ['dinosaurs', 'items']) {
     const currentById = new Map(catalog[kind].map(entry => [entry.id, entry]));
     const ids = new Set([...currentById.keys()].map(id => id.toLowerCase()));
-    const paths = new Set(catalog[kind].map(entry => pathKey(entry.blueprint)).filter(Boolean));
-    const result = { added: 0, existing: 0, excluded: 0, filledBlueprints: 0 };
+    const entriesByPath = new Map();
+    for (const entry of catalog[kind]) {
+      const key = pathKey(entry.blueprint);
+      if (!key) continue;
+      const matches = entriesByPath.get(key);
+      if (matches) matches.push(entry);
+      else entriesByPath.set(key, [entry]);
+    }
+    const result = { added: 0, existing: 0, excluded: 0, filledBlueprints: 0, verifiedBlueprints: 0 };
     for (const [index, entry] of incoming[kind].entries()) {
       const { requiredPaidDlc = [] } = batch[kind][index];
       if (!Array.isArray(requiredPaidDlc) || requiredPaidDlc.some(pack => typeof pack !== 'string' || !pack.trim())) {
@@ -53,22 +61,33 @@ export function mergeFreeCatalog(current, batch, { fillBlueprints = false, inclu
       }
       const id = entry.id.toLowerCase();
       const blueprint = pathKey(entry.blueprint);
+      const matches = entriesByPath.get(blueprint);
+      if (entry.verified && matches) {
+        for (const match of matches) {
+          if (match.contentPack !== pack.id || match.verified) continue;
+          match.verified = true;
+          result.verifiedBlueprints++;
+        }
+      }
+      if (verifyOnly) continue;
+
       const existing = currentById.get(entry.id);
-      if (fillBlueprints && blueprint && !paths.has(blueprint) &&
+      if (fillBlueprints && blueprint && !matches &&
           existing?.contentPack === pack.id && existing.name === entry.name &&
           !existing.blueprint && !existing.verified) {
         existing.blueprint = entry.blueprint;
-        paths.add(blueprint);
+        existing.verified = entry.verified;
+        entriesByPath.set(blueprint, [existing]);
         result.filledBlueprints++;
         continue;
       }
-      if (ids.has(id) || (blueprint && paths.has(blueprint))) {
+      if (ids.has(id) || matches) {
         result.existing++;
         continue;
       }
 
       ids.add(id);
-      if (blueprint) paths.add(blueprint);
+      if (blueprint) entriesByPath.set(blueprint, [entry]);
       if (!currentPack) {
         const addedPack = { ...pack, enabledByDefault: false };
         catalog.packs.push(addedPack);
@@ -102,26 +121,40 @@ async function writeNewCatalog(file, catalog) {
 async function main() {
   const { values } = parseArgs({ options: {
     catalog: { type: 'string' },
-    batch: { type: 'string' },
+    batch: { type: 'string', multiple: true },
     'fill-blueprints': { type: 'boolean' },
     'include-paid': { type: 'boolean' },
+    'verify-only': { type: 'boolean' },
     out: { type: 'string' },
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--fill-blueprints] [--include-paid] [--out <new.json>]');
+    console.log('node stage-free-catalog.mjs --catalog <current.json> --batch <batch.json> [--batch <another.json>] [--fill-blueprints | --verify-only] [--include-paid] [--out <new.json>]');
     return;
   }
   if (!values.catalog || !values.batch) throw new Error('Provide --catalog and --batch. Use --help for usage.');
-  const [current, batch] = await Promise.all([readCatalog(values.catalog), readCatalog(values.batch)]);
-  const { catalog, counts } = mergeFreeCatalog(current, batch, {
-    fillBlueprints: values['fill-blueprints'], includePaid: values['include-paid'],
-  });
-  for (const [kind, { added, existing, excluded, filledBlueprints }] of Object.entries(counts)) {
-    const scope = values['include-paid'] ? 'outside the selected catalog scope' : 'outside Base Game + Free Expansions';
-    console.log(`${kind}: ${added} added, ${existing} already present, ${excluded} ${scope}.`);
-    if (values['fill-blueprints']) console.log(`${kind}: ${filledBlueprints} blank Blueprint paths filled.`);
+  const options = {
+    fillBlueprints: values['fill-blueprints'], includePaid: values['include-paid'], verifyOnly: values['verify-only'],
+  };
+  if (options.fillBlueprints && options.verifyOnly) {
+    throw new Error('Use either --fill-blueprints or --verify-only.');
   }
+  const [current, ...batches] = await Promise.all([values.catalog, ...values.batch].map(readCatalog));
+  const scope = options.includePaid ? 'outside the selected catalog scope' : 'outside Base Game + Free Expansions';
+  let catalog = current;
+  let verifiedPaths = 0;
+  for (const [index, batch] of batches.entries()) {
+    const result = mergeFreeCatalog(catalog, batch, options);
+    catalog = result.catalog;
+    if (!options.verifyOnly && batches.length > 1) console.log(basename(values.batch[index]));
+    for (const [kind, counts] of Object.entries(result.counts)) {
+      verifiedPaths += counts.verifiedBlueprints;
+      if (options.verifyOnly) continue;
+      console.log(`${kind}: ${counts.added} added, ${counts.existing} already present, ${counts.excluded} ${scope}.`);
+      if (options.fillBlueprints) console.log(`${kind}: ${counts.filledBlueprints} blank Blueprint paths filled.`);
+    }
+  }
+  console.log(`${verifiedPaths} existing Blueprint paths marked verified.`);
   if (!values.out) {
     console.log('Preview complete. Use --out with a new path to save the merged catalog.');
     return;

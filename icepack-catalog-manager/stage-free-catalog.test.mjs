@@ -28,7 +28,7 @@ test('adds the free catalogue batch and preserves existing entries, packs, Kits 
     for (const entry of catalog[kind].slice(before[kind].length)) {
       assert.match(entry.blueprint, /^\/Game\/[^'\s]+\.[^'\s]+$/);
       assert.match(entry.source, /^https:\/\/wikily\.gg\/ark-survival-ascended\//);
-      assert.equal(entry.verified, false);
+      assert.equal(entry.verified, true);
     }
   }
   const config = await load('./streamer-config-v2.json');
@@ -59,8 +59,8 @@ test('does not overwrite a custom entry or duplicate its Blueprint under a new I
   const { catalog, counts } = mergeFreeCatalog(custom, mixed);
   assert.deepEqual(catalog, validateArkCatalog(custom));
   assert.deepEqual(counts, {
-    dinosaurs: { added: 0, existing: 0, excluded: 1, filledBlueprints: 0 },
-    items: { added: 0, existing: 2, excluded: 1, filledBlueprints: 0 },
+    dinosaurs: { added: 0, existing: 0, excluded: 1, filledBlueprints: 0, verifiedBlueprints: 0 },
+    items: { added: 0, existing: 2, excluded: 1, filledBlueprints: 0, verifiedBlueprints: 0 },
   });
 });
 
@@ -68,6 +68,7 @@ function catalogWithBlankPaths() {
   const originalBatch = structuredClone(batch);
   for (const entry of [...originalBatch.dinosaurs, ...originalBatch.items]) {
     entry.blueprint = null;
+    entry.verified = false;
     entry.source = 'Earlier Batch 04';
   }
   return mergeFreeCatalog(current, originalBatch).catalog;
@@ -84,7 +85,7 @@ test('fills existing Batch 04 paths only when requested and retains the original
   assert.equal(counts.dinosaurs.filledBlueprints, 6);
   assert.equal(counts.items.filledBlueprints, 12);
   assert.equal(counts.items.added, 0);
-  const expected = { ...flint, blueprint: batch.items.find(entry => entry.id === 'Flint').blueprint };
+  const expected = { ...flint, blueprint: batch.items.find(entry => entry.id === 'Flint').blueprint, verified: true };
   assert.deepEqual(catalog.items.find(entry => entry.id === 'Flint'), expected);
   assert.equal(flint.blueprint, null);
   assert.deepEqual(mergeFreeCatalog(catalog, batch, { fillBlueprints: true }).catalog, catalog);
@@ -160,7 +161,9 @@ test('Batch 05 retains free content and assigns official paid examples to their 
     assert.equal(full.packs.find(entry => entry.id === pack)?.enabledByDefault, false, pack);
   }
   assert.equal(full.items.find(entry => entry.name === 'Astraeos Boss Helmet')?.contentPack, 'astraeos');
-  assert.ok([...full.dinosaurs, ...full.items].every(entry => entry.verified === false));
+  for (const kind of ['dinosaurs', 'items']) {
+    assert.ok(full[kind].slice(baseline[kind].length).every(entry => entry.verified));
+  }
   const config = await load('./streamer-config-v2.json');
   assert.deepEqual(validateConfiguration(config, full), validateConfiguration(config, baseline));
   assert.deepEqual(mergeFreeCatalog(full, officialBatch, { includePaid: true }).catalog, full);
@@ -174,7 +177,7 @@ test('Batch 06 layers onto Batch 05 and separates Dear Jane rewards from paid co
   assert.equal(counts.items.added, 277);
   for (const kind of ['dinosaurs', 'items']) {
     assert.deepEqual(catalog[kind].slice(0, previous[kind].length), previous[kind]);
-    assert.ok(catalog[kind].slice(previous[kind].length).every(entry => entry.verified === false));
+    assert.ok(catalog[kind].slice(previous[kind].length).every(entry => entry.verified));
   }
 
   const rexCostumes = catalog.items.filter(entry => entry.name.startsWith("Rex 'ARK: The Animated Series'"));
@@ -212,6 +215,41 @@ test('paid import adds missing DLC definitions disabled and rejects contradictor
   assert.equal(counts.dinosaurs.excluded, 2);
   assert.deepEqual(catalog.dinosaurs.map(entry => entry.id), ['PaidFixture']);
   assert.deepEqual(catalog.packs.find(entry => entry.id === pack.id), { ...pack, enabledByDefault: false });
+});
+
+test('verify-only upgrades matching paths across batches and preserves other catalog data', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'icepack-verify-catalog-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const flint = batch.items.find(entry => entry.id === 'Flint');
+  const obsidian = batch.items.find(entry => entry.id === 'Obsidian');
+  const maeguana = reviewedBatch.dinosaurs.find(entry => entry.id === 'Maeguana');
+  const desmodus = reviewedBatch.dinosaurs.find(entry => entry.id === 'Desmodus');
+  const previous = validateArkCatalog({
+    ...current,
+    dinosaurs: [{ ...maeguana, verified: false }, { ...desmodus, verified: false }],
+    items: [
+      { ...flint, id: 'LocalFlint', blueprint: flint.blueprint + '_C', tags: ['Keep this'], verified: false },
+      { ...obsidian, contentPack: 'lost-colony', verified: false },
+      { ...batch.items.find(entry => entry.id === 'Metal'), blueprint: '/Game/Custom/Metal.Metal', verified: false },
+      { ...batch.items.find(entry => entry.id === 'Crystal'), blueprint: null, verified: false },
+    ],
+  });
+  const expected = structuredClone(previous);
+  for (const entry of [...expected.dinosaurs, expected.items[0]]) entry.verified = true;
+  const input = join(root, 'current.json');
+  const output = join(root, 'verified.json');
+  const original = JSON.stringify(previous);
+  await writeFile(input, original);
+  const run = (...args) => exec(process.execPath, [script, '--catalog', input,
+    '--batch', fileURLToPath(new URL('./catalog-imports/free-catalog-batch-04.json', import.meta.url)),
+    '--batch', fileURLToPath(new URL('./catalog-imports/official-catalog-batch-06.json', import.meta.url)),
+    '--verify-only', ...args,
+  ]);
+  assert.match((await run()).stdout, /2 existing Blueprint paths marked verified/);
+  assert.match((await run('--include-paid', '--out', output)).stdout, /3 existing Blueprint paths marked verified/);
+  assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), expected);
+  assert.equal(await readFile(input, 'utf8'), original);
+  assert.equal(mergeFreeCatalog(expected, reviewedBatch, { verifyOnly: true, includePaid: true }).counts.dinosaurs.verifiedBlueprints, 0);
 });
 
 test('CLI previews without writing, saves a new file, and refuses overwrites', async t => {

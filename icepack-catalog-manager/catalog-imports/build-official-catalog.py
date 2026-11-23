@@ -207,7 +207,7 @@ def make_entries(selected, kind, prior):
             category = old["category"] if old else "Other / Omnivores"
         result.append(dict(
             id=entry_id, name=label, blueprint=path, contentPack=pack, category=category,
-            verified=False, source=SOURCE, requiredPaidDlc=[] if pack == "base-game" else [pack],
+            verified=True, source=SOURCE, requiredPaidDlc=[] if pack == "base-game" else [pack],
         ))
     return sorted(result, key=lambda entry: (entry["contentPack"], entry["name"].lower(), entry["id"]))
 

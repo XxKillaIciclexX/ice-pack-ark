@@ -1,5 +1,32 @@
 # Ice Pack Companion Catalog Manager
 
+## Verify paths in an existing catalog
+
+The checked Blueprint paths in Batch 04 are verified against Wikily. Batches 05 and 06 are verified against the Beacon Ark Official snapshot. **Verified** records a trusted catalog reference. In-game delivery is a separate test of the server and gift integration. [Wikily ASA references](https://wikily.gg/ark-survival-ascended) · [Beacon Ark Official index](https://usebeacon.app/Games/ArkSA/Mods/2399830)
+
+If you already imported one or more of these batches, choose **Export catalog JSON** in Kit Editor. From the `ice-pack-ark` development checkout, run the following in PowerShell.
+
+```powershell
+git switch development
+if ($LASTEXITCODE -ne 0) { throw 'Could not switch to development.' }
+git pull --ff-only origin development
+if ($LASTEXITCODE -ne 0) { throw 'Could not update development.' }
+
+$current = (Read-Host 'Full path to the catalog JSON you just exported').Trim().Trim('"')
+$batches = '.\icepack-catalog-manager\catalog-imports'
+$verified = Join-Path (Split-Path -LiteralPath $current) ('icepack-verified-catalog-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.json')
+node .\icepack-catalog-manager\stage-free-catalog.mjs `
+    --catalog "$current" `
+    --batch "$batches\free-catalog-batch-04.json" `
+    --batch "$batches\official-catalog-batch-05.json" `
+    --batch "$batches\official-catalog-batch-06.json" `
+    --verify-only --include-paid --out "$verified"
+if ($LASTEXITCODE -ne 0) { throw 'Catalog verification failed.' }
+Write-Host "Import this file in Kit Editor: $verified"
+```
+
+The command reports how many existing entries now have verified paths. Choose the new file under **Import catalog JSON**, select **Validate & Import Catalog**, then use **Verified paths only** to check the result. `--verify-only` updates the flag on matching Blueprint paths within the same pack. A regular merge marks new entries and any paths added with `--fill-blueprints` using the batch's verification flags.
+
 ## Import the reviewed ASA catalog additions
 
 Batch 06 adds 2 creature and 277 item and resource records to Batch 05. The combined catalog has 537 creatures and 1,954 items on the standard Batch 05 baseline. It shows 381 creatures and 1,414 items with only Base Game + Free Expansions enabled.
@@ -32,7 +59,7 @@ Expect **2 dinosaurs added**, **277 items added**, and a `PASS Merged catalog sa
 
 ### Check sample Blueprint paths in ARK
 
-In ARK: Survival Ascended single-player or a throwaway test world with admin access, enable **Console Access** in settings. Run one command at a time and check the result in the world or your inventory. Record each result with the game build and map. The catalog marks these paths **Unverified** until an in-game check succeeds. [ARK console commands](https://ark.wiki.gg/wiki/Console_commands)
+For an optional server check, use ARK: Survival Ascended single-player or a throwaway test world with admin access and enable **Console Access** in settings. Run one command at a time and check the result in the world or your inventory. Record each result with the game build and map. [ARK console commands](https://ark.wiki.gg/wiki/Console_commands)
 
 ```text
 cheat SpawnDino "Blueprint'/Game/ASA/Dinos/Maelizard/Maelizard_Character_BP.Maelizard_Character_BP'" 500 0 0 25
@@ -115,13 +142,13 @@ node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --bat
 
 Choose the merged file under **Import catalog JSON** in Kit Editor. Select **Validate & Import Catalog**. The combined file uses the editor's 4 MB import limit. On the original Batch 04 catalog, this yields 535 creature and 1,677 item records, including earlier entries retained for saved Kits and rules. Search for **Palaeoctopus**, **Metal Pick**, and **Cementing Paste**. Then enable **Fantastic Tames** and confirm **Enigmasaur** appears under that pack. Use **Next page** to browse beyond the first 250 matches. Omit `--include-paid` for a free-only addition.
 
-Batch 05 uses names and Blueprint paths from Beacon's November 2026 Ark Official download. The [batch generator](catalog-imports/build-official-catalog.py) uses confirmed pack families and release-specific exceptions. Palaeoctopus is a free Genesis creature despite its asset folder. Fantastic Tames includes Enigmasaur even where it appears on a free map. Batch 05 set aside five creature records and 400 item records for the Batch 06 review. The generator also sets aside internal, temporary, or unavailable records. The new Blueprint entries are marked **Unverified** pending in-game testing. [Beacon snapshot API](https://api.usebeacon.app/v4/deltas/7) · [Free Palaeoctopus release](https://survivetheark.com/index.php?/forums/topic/773904-community-crunch-509-a-kraken-good-time/) · [Fantastic Tames Season 1](https://survivetheark.com/index.php?/forums/topic/774248-therizino-tlc-cerberax-and-gargantar-are-out-now/) · [Astraeos update](https://survivetheark.com/index.php?/forums/topic/774170-astraeos-heaven-abyss-update-is-now-live/)
+Batch 05 uses names and Blueprint paths from Beacon's November 2026 Ark Official download. The [batch generator](catalog-imports/build-official-catalog.py) uses confirmed pack families and release-specific exceptions. Palaeoctopus is a free Genesis creature despite its asset folder. Fantastic Tames includes Enigmasaur even where it appears on a free map. Batch 05 set aside five creature records and 400 item records for the Batch 06 review. The generator also sets aside internal, temporary, or unavailable records. [Beacon snapshot API](https://api.usebeacon.app/v4/deltas/7) · [Free Palaeoctopus release](https://survivetheark.com/index.php?/forums/topic/773904-community-crunch-509-a-kraken-good-time/) · [Fantastic Tames Season 1](https://survivetheark.com/index.php?/forums/topic/774248-therizino-tlc-cerberax-and-gargantar-are-out-now/) · [Astraeos update](https://survivetheark.com/index.php?/forums/topic/774170-astraeos-heaven-abyss-update-is-now-live/)
 
 The input snapshot fingerprint is `dfed97f2ac7988fb55e80367c83d01aa19de11d88d6d7571b13c9a97149ebc81`.
 
 ## Add free-expansion creatures and items
 
-Batch 04 adds six creatures from Ragnarok and Valguero, ten common resources, and two crafting stations. Each entry includes a Blueprint path and its ASA reference page from Wikily. Entries are marked **Unverified** pending in-game testing. The original Batch 03 catalog grows to 129 creatures and 16 items. Your totals include any entries you already added. [Ragnarok Ascended release](https://survivetheark.com/index.php?/forums/topic/772489-ragnarok-ascended-and-lost-colony-expansion-pass-are-now-live/) · [Valguero Ascended release](https://survivetheark.com/index.php?/forums/topic/772919-valguero-ascended-and-fantastic-tames-elderclaw-are-now-live/) · [Wikily ASA references](https://wikily.gg/ark-survival-ascended)
+Batch 04 adds six creatures from Ragnarok and Valguero, ten common resources, and two crafting stations. Each entry includes a Blueprint path and its ASA reference page from Wikily. The original Batch 03 catalog grows to 129 creatures and 16 items. Your totals include any entries you already added. [Ragnarok Ascended release](https://survivetheark.com/index.php?/forums/topic/772489-ragnarok-ascended-and-lost-colony-expansion-pass-are-now-live/) · [Valguero Ascended release](https://survivetheark.com/index.php?/forums/topic/772919-valguero-ascended-and-fantastic-tames-elderclaw-are-now-live/) · [Wikily ASA references](https://wikily.gg/ark-survival-ascended)
 
 In your running Kit Editor, select **Export catalog JSON**. From an `ice-pack-ark` development checkout, run:
 
@@ -133,7 +160,7 @@ node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --bat
 node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --fill-blueprints --out "$merged"
 ```
 
-The first command reports additions, matches, and filled paths. The second writes a new catalog. Use a fresh export so the merged copy includes your latest edits. The optional `--fill-blueprints` flag fills a blank path when the existing unverified entry matches the reviewed free entry by ID, name, and pack. Existing paths and other entry fields are preserved. If you imported the first Batch 04, expect up to six creature paths and twelve item paths filled, with your catalog totals staying the same.
+The first command reports additions, matches, and filled paths. The second writes a new catalog. Use a fresh export so the merged copy includes your latest edits. The optional `--fill-blueprints` flag fills a blank path when the existing unverified entry matches the reviewed free entry by ID, name, and pack. Filled paths take their verification flag from the batch. If you imported the first Batch 04, expect up to six creature paths and twelve item paths filled, with your catalog totals staying the same.
 
 In Kit Editor, choose the merged file under **Import catalog JSON**, then select **Validate & Import Catalog**. Save the original export as your backup. The editor validates saved Kits and Gift Rules against the merged file. Search for **Megaraptor** and **Flint**, check their Blueprint path fields, and open a familiar Kit. The updated editor accepts catalog files up to 4 MB.
 
@@ -154,6 +181,6 @@ This is a **patch** for the existing `icepack-catalog-manager` folder. **Do not 
 5. Try the Category and Role/Subcategory filters, and verify saved Kits still appear.
 6. Export catalog; import `icepack-base-game-creatures-batch-02-categorized.json` with Choose File. **The import replaces the complete catalog**, so do not use unmodified if you've added custom entries; merge first.
 
-Categories are **Dinosaur**: Herbivores, Carnivores, Other / Omnivores; **Item**: Resources, Consumables, Armor, Weapons & Tools, Saddles, Structures, Other. Subcategories are multiple freeform tags. Old catalogs without tags get an empty list, and old known creatures are assigned best-effort diet categories. Categories/tags are metadata; they do not affect spawning. All asset paths are still unverified and no commands are issued.
+Categories are **Dinosaur**: Herbivores, Carnivores, Other / Omnivores; **Item**: Resources, Consumables, Armor, Weapons & Tools, Saddles, Structures, Other. Subcategories are multiple freeform tags. Old catalogs without tags get an empty list, and old known creatures are assigned best-effort diet categories. Categories and tags describe entries for catalog browsing.
 
 `ark-catalog-v2.json` in this patch repository is a **test fixture only**, not intended for copying onto the installation.

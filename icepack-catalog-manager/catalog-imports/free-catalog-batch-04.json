@@ -7,7 +7,7 @@
       "blueprint": "/Game/ASA/Dinos/Bison/Bison_Character_BP.Bison_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Herbivores",
       "tags": [
         "Ragnarok"
@@ -20,7 +20,7 @@
       "blueprint": "/Game/PrimalEarth/Dinos/Griffin/Griffin_Character_BP.Griffin_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Carnivores",
       "tags": [
         "Ragnarok",
@@ -34,7 +34,7 @@
       "blueprint": "/Game/ASA/Dinos/Megaraptor/ValMegaraptor_Character_BP.ValMegaraptor_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Carnivores",
       "tags": [
         "Valguero"
@@ -47,7 +47,7 @@
       "blueprint": "/Game/PrimalEarth/Dinos/Raptor/Uberraptor/Deinonychus_Character_BP.Deinonychus_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Carnivores",
       "tags": [
         "Valguero"
@@ -60,7 +60,7 @@
       "blueprint": "/Game/ASA/Dinos/IceGolem/IceGolem_Character_BP.IceGolem_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Other / Omnivores",
       "tags": [
         "Valguero"
@@ -73,7 +73,7 @@
       "blueprint": "/Game/ASA/Dinos/ChalkGolem/ChalkGolem_Character_BP.ChalkGolem_Character_BP",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Other / Omnivores",
       "tags": [
         "Valguero"
@@ -88,7 +88,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Flint.PrimalItemResource_Flint",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/flint/spawn-commands"
@@ -99,7 +99,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Metal.PrimalItemResource_Metal",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/metal/spawn-commands"
@@ -110,7 +110,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/metal-ingot/spawn-commands"
@@ -121,7 +121,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal.PrimalItemResource_Crystal",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/crystal/spawn-commands"
@@ -132,7 +132,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Obsidian.PrimalItemResource_Obsidian",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/obsidian/spawn-commands"
@@ -143,7 +143,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hide.PrimalItemResource_Hide",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/hide/spawn-commands"
@@ -154,7 +154,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Chitin.PrimalItemResource_Chitin",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/chitin/spawn-commands"
@@ -165,7 +165,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Keratin.PrimalItemResource_Keratin",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/keratin/spawn-commands"
@@ -176,7 +176,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sparkpowder.PrimalItemResource_Sparkpowder",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/sparkpowder/spawn-commands"
@@ -187,7 +187,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Resources",
       "tags": [],
       "source": "https://wikily.gg/ark-survival-ascended/items/cementing-paste/spawn-commands"
@@ -198,7 +198,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_MortarAndPestle.PrimalItemStructure_MortarAndPestle",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Structures",
       "tags": [
         "Crafting Stations"
@@ -211,7 +211,7 @@
       "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Fabricator.PrimalItemStructure_Fabricator",
       "contentPack": "base-game",
       "enabled": true,
-      "verified": false,
+      "verified": true,
       "category": "Structures",
       "tags": [
         "Crafting Stations"
