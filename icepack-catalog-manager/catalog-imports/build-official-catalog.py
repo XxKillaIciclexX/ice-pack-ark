@@ -42,6 +42,26 @@ PAID_ASA = {
 SKIP_TAGS = {"temporary", "mission", "minion", "hunt", "retrieve", "race", "sport", "event", "deprecated", "generic", "cheat"}
 COSMETIC_TAGS = {"skin", "pet"}
 INCIDENTAL = re.compile(r"\b(?:outpost|pirate|ghost|debug|placeholder|dummy)\b|do not spawn", re.I)
+ANIMATED_SERIES = {
+    "id": "animated-series", "name": "ARK Animated Series 109-Costumes Pack",
+    "premium": True, "enabledByDefault": False,
+}
+FREE_STRUCTURES = {
+    "PrimalItemStructure_AmmoContainer_C", "PrimalItemStructure_EggIncubator_C",
+    "PrimalItemStructure_CropPlot_Tek_C",
+}
+FREE_EVENT_SKINS = {
+    "PrimalItemSkin_BunnyHat_C": "Eggcellent Adventure",
+    "PrimalItemSkin_DinoBunnyHat_C": "Eggcellent Adventure",
+    "PrimalItemSkin_BoneHelmet_C": "Fear Ascended",
+    "PrimalItemSkin_ClownMask_C": "Fear Ascended",
+    "PrimalItemSkin_DinoWitchHat_C": "Fear Ascended",
+    "PrimalItemSkin_VampireEyes_C": "Fear Ascended",
+    "PrimalItemSkin_WerewolfHat_C": "Fear Ascended",
+    "PrimalItemSkin_WitchHat_C": "Fear Ascended",
+    "PrimalItemSkin_SantaHat_C": "Winter Wonderland",
+    "PrimalItemSkin_TorchSparkler_C": "ARK Anniversary",
+}
 
 
 def path_key(path):
@@ -121,6 +141,45 @@ def accepted_rows(rows):
     return keep, counts
 
 
+def reviewed_entry(row):
+    path = path_key(row["path"])
+    asset = row["classString"]
+    if path.startswith("/game/packs/aaa/skins/"):
+        return ANIMATED_SERIES["id"], ["Cosmetic"], [ANIMATED_SERIES["id"]]
+    if "/armor/skin/dearjane/" in path:
+        return "base-game", ["Cosmetic", "Dear Jane event"], []
+    if "/chibidinos/" in path and asset.startswith("PrimalItemSkin_ChibiDino_"):
+        return "base-game", ["Chibi", "Cosmetic"], []
+    if path.startswith("/game/asa/dinos/maelizard/"):
+        return "base-game", ["Astraeos debut"], []
+    if path.startswith("/game/fjordur/dinos/desmodus/"):
+        return "lost-colony", ["Lost Colony debut"], []
+    if asset == "PrimalItemArmor_Saddle_FireLion_C":
+        return "fantastic-tames", [], ["fantastic-tames"]
+    if asset.startswith("PrimalItemSkin_DesertGhillie_") or asset == "PrimalItemSkin_ManticoreShield_C":
+        return "base-game", ["Cosmetic", "Scorched Earth"], []
+    if asset in FREE_EVENT_SKINS:
+        return "base-game", ["Cosmetic", FREE_EVENT_SKINS[asset]], []
+    if asset in FREE_STRUCTURES or asset == "PrimalItemResource_ApexDrop_Sarco_C":
+        return "base-game", [], []
+    return None
+
+
+def reviewed_rows(rows):
+    selected = []
+    metadata = {}
+    for row in rows:
+        if not eligible(row) or content_pack(row):
+            continue
+        classification = reviewed_entry(row)
+        if classification is None:
+            continue
+        pack, tags, requirements = classification
+        selected.append((row, pack))
+        metadata[row["path"]] = {"tags": tags, "requiredPaidDlc": requirements}
+    return selected, metadata
+
+
 def make_entries(selected, kind, prior):
     existing = {path_key(row["blueprint"]): row for row in prior if row["blueprint"]}
     names = {name_key(row["name"]): row for row in prior}
@@ -165,6 +224,7 @@ def read_official(archive):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
+    parser.add_argument("--batch", choices=(5, 6), default=5, type=int)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     source = read_official(args.archive)
@@ -172,9 +232,21 @@ def main():
     current = json.loads((here.parent / "ark-catalog-v2.json").read_text(encoding="utf-8"))
     batch04 = json.loads((here / "free-catalog-batch-04.json").read_text(encoding="utf-8"))
     result = {"schemaVersion": 2, "packs": current["packs"]}
+    batch05 = None
+    if args.batch == 6:
+        batch05 = json.loads((here / "official-catalog-batch-05.json").read_text(encoding="utf-8"))
+        result["packs"] = [*batch05["packs"], ANIMATED_SERIES]
     for kind, source_key in (("dinosaurs", "creatures"), ("items", "engrams")):
-        selected, counts = accepted_rows(source[source_key])
-        result[kind] = make_entries(selected, kind, current[kind] + batch04[kind])
+        prior = current[kind] + batch04[kind]
+        if batch05 is None:
+            selected, counts = accepted_rows(source[source_key])
+            result[kind] = make_entries(selected, kind, prior)
+        else:
+            selected, metadata = reviewed_rows(source[source_key])
+            counts = Counter(pack for _, pack in selected)
+            result[kind] = make_entries(selected, kind, prior + batch05[kind])
+            for entry in result[kind]:
+                entry.update(metadata[entry["blueprint"]])
         print(kind, len(result[kind]), dict(sorted(counts.items())))
 
     # Keep each entry on one line to make future catalog diffs readable.

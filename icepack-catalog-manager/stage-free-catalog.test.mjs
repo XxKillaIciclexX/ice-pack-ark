@@ -15,6 +15,7 @@ const load = url => readFile(new URL(url, import.meta.url), 'utf8').then(JSON.pa
 const current = await load('./ark-catalog-v2.json');
 const batch = await load('./catalog-imports/free-catalog-batch-04.json');
 const officialBatch = await load('./catalog-imports/official-catalog-batch-05.json');
+const reviewedBatch = await load('./catalog-imports/official-catalog-batch-06.json');
 
 test('adds the free catalogue batch and preserves existing entries, packs, Kits and gift rules', async () => {
   const { catalog, counts } = mergeFreeCatalog(current, batch);
@@ -163,6 +164,35 @@ test('Batch 05 retains free content and assigns official paid examples to their 
   const config = await load('./streamer-config-v2.json');
   assert.deepEqual(validateConfiguration(config, full), validateConfiguration(config, baseline));
   assert.deepEqual(mergeFreeCatalog(full, officialBatch, { includePaid: true }).catalog, full);
+});
+
+test('Batch 06 layers onto Batch 05 and separates Dear Jane rewards from paid costumes', async () => {
+  const baseline = mergeFreeCatalog(current, batch).catalog;
+  const previous = mergeFreeCatalog(baseline, officialBatch, { includePaid: true }).catalog;
+  const { catalog, counts } = mergeFreeCatalog(previous, reviewedBatch, { includePaid: true });
+  assert.equal(counts.dinosaurs.added, 2);
+  assert.equal(counts.items.added, 277);
+  for (const kind of ['dinosaurs', 'items']) {
+    assert.deepEqual(catalog[kind].slice(0, previous[kind].length), previous[kind]);
+    assert.ok(catalog[kind].slice(previous[kind].length).every(entry => entry.verified === false));
+  }
+
+  const rexCostumes = catalog.items.filter(entry => entry.name.startsWith("Rex 'ARK: The Animated Series'"));
+  assert.equal(rexCostumes.length, 2);
+  assert.ok(rexCostumes.some(entry => entry.contentPack === 'base-game' && entry.tags.includes('Dear Jane event')));
+  assert.ok(rexCostumes.some(entry => entry.contentPack === 'animated-series'));
+  assert.notEqual(rexCostumes[0].blueprint, rexCostumes[1].blueprint);
+  assert.equal(catalog.packs.find(pack => pack.id === 'animated-series')?.enabledByDefault, false);
+
+  const free = mergeFreeCatalog(previous, reviewedBatch).catalog;
+  assert.equal(free.dinosaurs.find(entry => entry.name === 'Maeguana')?.contentPack, 'base-game');
+  assert.equal(free.items.find(entry => entry.name === 'Sarcosuchus Skin')?.category, 'Resources');
+  assert.equal(free.dinosaurs.find(entry => entry.name === 'Desmodus'), undefined);
+  assert.equal(free.packs.find(pack => pack.id === 'animated-series'), undefined);
+
+  const config = await load('./streamer-config-v2.json');
+  assert.deepEqual(validateConfiguration(config, catalog), validateConfiguration(config, previous));
+  assert.deepEqual(mergeFreeCatalog(catalog, reviewedBatch, { includePaid: true }).catalog, catalog);
 });
 
 test('paid import adds missing DLC definitions disabled and rejects contradictory pack markings', () => {

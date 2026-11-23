@@ -1,5 +1,51 @@
 # Ice Pack Companion Catalog Manager
 
+## Import the reviewed ASA catalog additions
+
+Batch 06 adds 2 creature and 277 item and resource records to Batch 05. The combined catalog has 537 creatures and 1,954 items on the standard Batch 05 baseline. It shows 381 creatures and 1,414 items with only Base Game + Free Expansions enabled.
+
+- **Base Game + Free Expansions** includes Maeguana and its eggs and saddle, the Egg Incubator, Ammo Box, Tek Crop Plot, Sarcosuchus Skin, and additional cosmetics. Maeguana debuted on the paid Astraeos map and the creature can be used without a separate DLC entitlement. The `Astraeos debut` tag records its origin. Seasonal cosmetic availability depends on the applicable event or server. [Astraeos launch](https://survivetheark.com/index.php?/forums/topic/771425-astraeos-and-love-ascended-are-live/) · [Creature entitlement notes](https://ark.wiki.gg/wiki/Cryolophosaurus) · [ASA patch notes](https://survivetheark.com/index.php?/forums/topic/708761-asa-pc-patch-notes-client-v989-updated-11192026/) · [Tek Crop Plot](https://ark.wiki.gg/wiki/Tek_Crop_Plot) · [Scorched Earth](https://ark.wiki.gg/wiki/Scorched_Earth) · [Eggcellent Adventure](https://survivetheark.com/index.php?/forums/topic/773766-community-crunch-500-springing-into-eggcellent-adventures/) · [Fear Ascended](https://survivetheark.com/index.php?/forums/topic/774298-community-crunch-529-ghouls-just-wanna-have-fun/) · [Winter Wonderland](https://survivetheark.com/index.php?/forums/topic/773455-community-crunch-489-naughty-nice-or-eaten-raptor-claus-returns/) · [Love Ascended](https://survivetheark.com/index.php?/forums/topic/773648-community-crunch-493-its-mate-boosting-season/)
+- **Lost Colony** identifies where Desmodus, its saddle, and Sanguine Elixir debuted in Ascended. The label is the release origin. Desmodus is also available on Astraeos. **Fantastic Tames** includes the Pyromane's Flaming Fur. [Lost Colony launch](https://survivetheark.com/index.php?/forums/topic/773450-ark-lost-colony-is-now-live/) · [Desmodus availability](https://usebeacon.app/Games/ArkSA/Mods/2399830/Desmodus_Character_BP_C) · [Flaming Fur](https://wikily.gg/ark-survival-ascended/items/flaming-fur)
+- **ARK Animated Series 109-Costumes Pack** is a separate paid pack with 108 Blueprint records in this snapshot. The free Dear Jane event versions are searchable under Base Game + Free Expansions with their `Dear Jane event` tag. [Paid pack listing](https://store.steampowered.com/app/3571730/) · [Dear Jane event](https://survivetheark.com/index.php?/forums/topic/726881-ark-the-animated-series-is-live/)
+
+The review set aside the Brigantine and Sloop vehicle actors because their usable ship items are already in Batch 05. Dinopithecus awaits the Lost Island Ascended release. Of the 123 item rows left out, 87 are decorative bone attachment assets and 36 need player-availability checks. Both batches use the Beacon snapshot fingerprint listed below. Generate Batch 06 from that archive with `--batch 6`. [Tides of Fortune launch](https://survivetheark.com/index.php?/forums/topic/773981-ark-tides-of-fortune-dragontopia-and-genesis-part-1-are-out-now/) · [Lost Island roadmap](https://ark.fusey.gg/ark-survival-ascended/news/roadmap) · [Bone attachment notes](https://hypernatrema.com/ark/items)
+
+### Merge Batch 06 on Windows
+
+Open your current Kit Editor and select **Export catalog JSON**. Open a second PowerShell window in your `ice-pack-ark` Git checkout and run:
+
+```powershell
+git switch development
+if ($LASTEXITCODE -ne 0) { throw 'Could not switch to development.' }
+git pull --ff-only origin development
+if ($LASTEXITCODE -ne 0) { throw 'Could not update development.' }
+
+$current = (Read-Host 'Full path to the catalog JSON you just exported').Trim().Trim('"')
+$batch = '.\icepack-catalog-manager\catalog-imports\official-catalog-batch-06.json'
+$merged = Join-Path (Split-Path -LiteralPath $current) ('icepack-batch-06-merged-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.json')
+node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --batch "$batch" --include-paid --out "$merged"
+if ($LASTEXITCODE -ne 0) { throw 'Catalog staging failed.' }
+Write-Host "Import this file in Kit Editor: $merged"
+```
+
+Expect **2 dinosaurs added**, **277 items added**, and a `PASS Merged catalog saved` message on the standard Batch 05 baseline. Choose the printed file under **Import catalog JSON**, then click **Validate & Import Catalog**. Search for **Maeguana**, **Egg Incubator**, and **Sarcosuchus Skin**. Enable **Lost Colony** to check Desmodus and enable **ARK Animated Series 109-Costumes Pack** to check the paid Achatina costume. Search for `Dear Jane` to see the separate event versions. Open a familiar saved Kit and Gift Rule.
+
+### Check sample Blueprint paths in ARK
+
+In ARK: Survival Ascended single-player or a throwaway test world with admin access, enable **Console Access** in settings. Run one command at a time and check the result in the world or your inventory. Record each result with the game build and map. The catalog marks these paths **Unverified** until an in-game check succeeds. [ARK console commands](https://ark.wiki.gg/wiki/Console_commands)
+
+```text
+cheat SpawnDino "Blueprint'/Game/ASA/Dinos/Maelizard/Maelizard_Character_BP.Maelizard_Character_BP'" 500 0 0 25
+cheat GiveItem "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Sarco.PrimalItemResource_ApexDrop_Sarco'" 1 0 0
+cheat GiveItem "Blueprint'/Game/Genesis2/Structures/EggIncubator/PrimalItemStructure_EggIncubator.PrimalItemStructure_EggIncubator'" 1 0 0
+```
+
+Expect a **wild level 25 Maeguana** ahead of you, **one Sarcosuchus Skin** in your inventory, and **one Egg Incubator** in your inventory. If you have access to a Lost Colony test world, you can also check the Desmodus path there.
+
+```text
+cheat SpawnDino "Blueprint'/Game/Fjordur/Dinos/Desmodus/Desmodus_Character_BP.Desmodus_Character_BP'" 500 0 0 25
+```
+
 ## Import the expanded ASA catalog
 
 Batch 05 contains 531 creature Blueprint records and 1,677 item and resource records. It includes 376 free creature records, 1,248 free item records, and 151 resources within those free items. The paid records carry their specific pack names and stay hidden until you enable the pack in Kit Editor. Creature counts include released variants. Live paid DLC delivery requires a separate engine update. [Beacon Ark Official index](https://usebeacon.app/Games/ArkSA/Mods/2399830) · [Studio Wildcard release notes](https://survivetheark.com/index.php?/forums/topic/708761-asa-pc-patch-notes-client-v989-updated-11192026/)
@@ -69,7 +115,7 @@ node .\icepack-catalog-manager\stage-free-catalog.mjs --catalog "$current" --bat
 
 Choose the merged file under **Import catalog JSON** in Kit Editor. Select **Validate & Import Catalog**. The combined file uses the editor's 4 MB import limit. On the original Batch 04 catalog, this yields 535 creature and 1,677 item records, including earlier entries retained for saved Kits and rules. Search for **Palaeoctopus**, **Metal Pick**, and **Cementing Paste**. Then enable **Fantastic Tames** and confirm **Enigmasaur** appears under that pack. Use **Next page** to browse beyond the first 250 matches. Omit `--include-paid` for a free-only addition.
 
-Batch 05 uses names and Blueprint paths from Beacon's November 2026 Ark Official download. The [batch generator](catalog-imports/build-official-catalog.py) uses confirmed pack families and release-specific exceptions. Palaeoctopus is a free Genesis creature despite its asset folder. Fantastic Tames includes Enigmasaur even where it appears on a free map. Five creature records and 400 item records still need classification or review. The generator also sets aside internal, temporary, or unavailable records. The new Blueprint entries are marked **Unverified** pending in-game testing. [Beacon snapshot API](https://api.usebeacon.app/v4/deltas/7) · [Free Palaeoctopus release](https://survivetheark.com/index.php?/forums/topic/773904-community-crunch-509-a-kraken-good-time/) · [Fantastic Tames Season 1](https://survivetheark.com/index.php?/forums/topic/774248-therizino-tlc-cerberax-and-gargantar-are-out-now/) · [Astraeos update](https://survivetheark.com/index.php?/forums/topic/774170-astraeos-heaven-abyss-update-is-now-live/)
+Batch 05 uses names and Blueprint paths from Beacon's November 2026 Ark Official download. The [batch generator](catalog-imports/build-official-catalog.py) uses confirmed pack families and release-specific exceptions. Palaeoctopus is a free Genesis creature despite its asset folder. Fantastic Tames includes Enigmasaur even where it appears on a free map. Batch 05 set aside five creature records and 400 item records for the Batch 06 review. The generator also sets aside internal, temporary, or unavailable records. The new Blueprint entries are marked **Unverified** pending in-game testing. [Beacon snapshot API](https://api.usebeacon.app/v4/deltas/7) · [Free Palaeoctopus release](https://survivetheark.com/index.php?/forums/topic/773904-community-crunch-509-a-kraken-good-time/) · [Fantastic Tames Season 1](https://survivetheark.com/index.php?/forums/topic/774248-therizino-tlc-cerberax-and-gargantar-are-out-now/) · [Astraeos update](https://survivetheark.com/index.php?/forums/topic/774170-astraeos-heaven-abyss-update-is-now-live/)
 
 The input snapshot fingerprint is `dfed97f2ac7988fb55e80367c83d01aa19de11d88d6d7571b13c9a97149ebc81`.
 
