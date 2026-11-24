@@ -17,8 +17,11 @@ const post = (endpoint, body) => fetch(`${origin}/${endpoint}`, {
 const forward = () => fetch(`${origin}/bridge/gift`, {
   method: 'POST', headers: { 'X-Ice-Pack': '1' }, body: new URLSearchParams({ giftId: '5655', giftName: 'Rose', coins: '1' }),
 });
+const tikfinityHeaders = {
+  'Content-Type': 'application/json', 'X-TikFinity-UID': 'fixture', 'X-TikFinity-Language': 'en',
+};
 const testAction = (origin = 'https://app.tikfinity.com') => fetch('http://127.0.0.1:8832/api/features/actions/exec', {
-  method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+  method: 'POST', headers: { Origin: origin, ...tikfinityHeaders },
   body: JSON.stringify({ categoryId: 'icepack-test', actionId: 'armed-gift', context: { eventType: 'test' } }),
 });
 const arm = () => post('tikfinity-test-arm', { gift: 'Rose', confirmation: 'ARM TIKFINITY TEST' });
@@ -94,15 +97,27 @@ test('one input at a time, single and completed streak rewards, and no duplicate
     assert.equal(appInfo.headers.get('Access-Control-Allow-Origin'), origin);
     assert.equal((await appInfo.json()).data.name, 'Ice Pack Companion');
   }
-  const preflight = await fetch('http://127.0.0.1:8832/api/features/actions/exec', {
-    method: 'OPTIONS', headers: {
-      Origin: 'https://app.tikfinity.com', 'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'content-type', 'Access-Control-Request-Private-Network': 'true',
-    },
-  });
-  assert.equal(preflight.status, 204);
-  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), 'https://app.tikfinity.com');
-  assert.equal(preflight.headers.get('Access-Control-Allow-Private-Network'), 'true');
+  const appOrigin = 'https://tikfinity.com';
+  const localActions = 'http://127.0.0.1:8832/api/features';
+  const requestedHeaders = 'content-type,x-tikfinity-language,x-tikfinity-uid';
+  for (const [path, method] of [['/categories', 'GET'], ['/actions?categoryId=icepack-test', 'GET'], ['/actions/exec', 'POST']]) {
+    const preflight = await fetch(localActions + path, {
+      method: 'OPTIONS', headers: {
+        Origin: appOrigin, 'Access-Control-Request-Method': method,
+        'Access-Control-Request-Headers': requestedHeaders, 'Access-Control-Request-Private-Network': 'true',
+      },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), appOrigin);
+    assert.equal(preflight.headers.get('Access-Control-Allow-Private-Network'), 'true');
+    const allowed = preflight.headers.get('Access-Control-Allow-Headers').toLowerCase().split(',').map(name => name.trim()).sort();
+    assert.deepEqual(allowed, requestedHeaders.split(','));
+  }
+  const clientHeaders = { Origin: appOrigin, ...tikfinityHeaders };
+  const categories = await fetch(localActions + '/categories', { headers: clientHeaders });
+  assert.deepEqual((await categories.json()).data, [{ categoryId: 'icepack-test', categoryName: 'Ice Pack Companion' }]);
+  const actions = await fetch(localActions + '/actions?categoryId=icepack-test', { headers: clientHeaders });
+  assert.deepEqual((await actions.json()).data, [{ actionId: 'armed-gift', actionName: 'Send armed test gift' }]);
   assert.equal((await testAction()).status, 400);
   assert.equal((await post('custom-rules-reload', {})).status, 200);
   assert.equal((await post('custom-rules-mode', { mode: 'live', confirmation: 'ENABLE LIVE CUSTOM RULES' })).status, 200);

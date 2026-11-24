@@ -228,7 +228,7 @@ function startTikFinityTestServer() {
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-TikFinity-UID, X-TikFinity-Language');
       res.setHeader('Access-Control-Allow-Private-Network', 'true');
       res.setHeader('Vary', 'Origin');
     }
