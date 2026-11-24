@@ -1,5 +1,11 @@
 # ice-pack-ark
 
+## Direct TikFinity gift input
+
+Open TikFinity Desktop on the same PC as the engine and connect it to your TikTok LIVE. In Northpath Operations Center, select **Gift source → Use direct TikFinity** and restart Companion. For standalone startup, set `ICEPACK_GIFT_SOURCE=tikfinity` in the local `.env` and run `npm start`. The engine retries the loopback feed when TikFinity Desktop opens or reconnects.
+
+Direct mode receives completed streaks and single gifts. The engine deduplicates their event IDs during the session and refuses Streamer.bot gift forwarding while direct mode is active. Streams can still use Streamer.bot for unrelated actions. Select **Use Streamer.bot** and restart Companion to switch ARK back to that source. [TikFinity Event API](https://tikfinity.zerody.one/)
+
 
 ## Multiple dinosaurs in custom gift rules
 

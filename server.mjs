@@ -2,7 +2,12 @@ import {CustomRulesLane} from './icepack-custom-rules.mjs';
 import {buildIcePackSpawnCommand} from './icepack-spawn-rcon.mjs';
 import {GiftRconLane} from './icepack-gift-rcon.mjs';
 import http from 'node:http';import {randomUUID} from 'node:crypto';import fs from 'node:fs';import {normalize,isFinal,action} from './engine.mjs';
-const file='catalog.json';let catalog=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{};let logs=[],connection=null,status='Streamer.bot bridge ready',seen=new Set(),busy=false,refreshTimer;
+const giftSource = process.env.ICEPACK_GIFT_SOURCE || 'streamerbot';
+if (!['streamerbot', 'tikfinity'].includes(giftSource)) throw Error('ICEPACK_GIFT_SOURCE must be streamerbot or tikfinity');
+const file='catalog.json';let catalog=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{};let logs=[],seen=new Set();
+let connection, retryConnection, waitingLogged = false;
+let giftSourceStatus = giftSource === 'tikfinity' ? 'waiting' : 'ready';
+let status = giftSource === 'tikfinity' ? 'Waiting for TikFinity Desktop' : 'Streamer.bot bridge ready';
 let armed=false, pending=[], rewards=[], running=false;
 let autoEnabled=false, active=null, lastBridge=0;
 let liveSpawnBusy=false, lastLiveSpawn=0;
@@ -24,27 +29,86 @@ async function drain(){if(running)return;running=true;try{while(rewards.length){
 function enqueueDodo(source){queueRule({gift:'Rose',kind:'spawn',target:'Dodo',level:10,quantity:1,distance:500,cooldown:0},source,true);}
 const log=(message)=>{logs.unshift({time:new Date().toLocaleTimeString(),message});logs=logs.slice(0,100);};
 function save(){fs.writeFileSync(file+'.tmp',JSON.stringify(catalog,null,2));fs.renameSync(file+'.tmp',file);}
-function ingest(e,sim=false){const g=normalize(e,catalog);if(!g.id)return log('Gift missing ID; ignored');if(!sim){catalog[g.id]={name:g.name,coins:g.coins??catalog[g.id]?.coins??null};save();}if(!isFinal(g))return;const key=g.groupId&&g.groupId!=='0'?`${g.sender}:${g.id}:${g.groupId}`:g.messageId;if(!sim&&key&&seen.has(key))return;if(!sim&&key){seen.add(key);if(seen.size>10000)seen.delete(seen.values().next().value);}log(`${sim?'TEST: ':''}${g.sender} → ${g.name} ×${g.count} → ${g.coins===null?'unknown cost':g.coins*g.count+' coins'} → ${action(g)} (coin-tier preview)`);if(!sim&&customRules.handle(g))return;if(!sim&&giftRcon.handle(g))return;if(!sim&&armed){const r=settings.rules.find(r=>r.gift.toLowerCase()===g.id.toLowerCase())||settings.rules.find(r=>r.gift.toLowerCase()===g.name.trim().toLowerCase()||(r.gift.toLowerCase()==='rose'&&g.name.toLowerCase()==='rosa'));if(r)queueRule(r,g.sender+' / '+g.name);}}
+function recordGift(gift) {
+  catalog[gift.id] = { name: gift.name, coins: gift.coins ?? catalog[gift.id]?.coins ?? null };
+  save();
+}
+function ingest(event, sim = false) {
+  const gift = normalize(event, catalog);
+  if (!gift.id) return log('Gift missing ID; ignored');
+  if (!sim) recordGift(gift);
+  if (isFinal(gift)) processGift(gift, sim);
+}
+function processGift(g, sim){log(`${sim?'TEST: ':''}${g.sender} → ${g.name} ×${g.count} → ${g.coins===null?'unknown cost':g.coins*g.count+' coins'} → ${action(g)} (coin-tier preview)`);if(!sim&&customRules.handle(g))return;if(!sim&&giftRcon.handle(g))return;if(!sim&&armed){const r=settings.rules.find(r=>r.gift.toLowerCase()===g.id.toLowerCase())||settings.rules.find(r=>r.gift.toLowerCase()===g.name.trim().toLowerCase()||(r.gift.toLowerCase()==='rose'&&g.name.toLowerCase()==='rosa'));if(r)queueRule(r,g.sender+' / '+g.name);}}
 
 async function refresh(){log(`Catalog contains ${Object.keys(catalog).length} observed gifts. TikFinity adds new gifts as they arrive; no full catalog endpoint is used.`);}
-async function connect(){
- if(busy||connection)throw Error('Already connected or connecting');
- busy=true;status='Connecting to TikFinity';
- let ws,timer;
- try{
-  ws=new WebSocket('ws://127.0.0.1:21213/');connection=ws;
-  ws.addEventListener('message',event=>{try{const packet=JSON.parse(event.data);if(packet.event==='gift'&&packet.data)ingest(packet.data);}catch(e){log('TikFinity event error: '+e.message);}});
-  ws.addEventListener('close',()=>{if(connection===ws){connection=null;status='Disconnected';log('TikFinity disconnected');}});
-  ws.addEventListener('error',()=>log('TikFinity WebSocket error: check that TikFinity Desktop is running on this PC.'));
-  await new Promise((resolve,reject)=>{
-   ws.addEventListener('open',resolve,{once:true});
-   ws.addEventListener('error',()=>reject(Error('Cannot connect to TikFinity Desktop at 127.0.0.1:21213. Open TikFinity and try again.')),{once:true});
-   ws.addEventListener('close',()=>reject(Error('TikFinity socket closed before connecting')),{once:true});
-   timer=setTimeout(()=>reject(Error('TikFinity connection timed out')),5000);
+function eventId(value) {
+  if (typeof value === 'string' && /^[1-9]\d{0,23}$/.test(value)) return value;
+  return Number.isSafeInteger(value) && value > 0 ? String(value) : '';
+}
+
+function acceptTikFinityGift(data) {
+  const gift = normalize(data, catalog);
+  if (!/^\d{1,20}$/.test(gift.id) || typeof gift.name !== 'string' || !gift.name.trim() || gift.name.length > 120) {
+    log('TikFinity gift ignored: invalid gift ID or name');
+    return;
+  }
+  if (!isFinal(gift)) return;
+  const messageId = eventId(data.common?.msgId) || eventId(data.msgId);
+  const sender = data.user?.userId ?? data.userId ?? data.user?.uniqueId ?? data.uniqueId;
+  const group = eventId(data.groupId);
+  const groupKey = gift.type === 1 && group && (typeof sender === 'string' || Number.isSafeInteger(sender)) &&
+    String(sender).length > 0 && String(sender).length <= 120 ? JSON.stringify([String(sender), gift.id, group]) : '';
+  const keys = [groupKey && 'tikfinity:streak:' + groupKey, messageId && 'tikfinity:gift:' + messageId].filter(Boolean);
+  if (!keys.length) { log('TikFinity gift ignored: missing stable event ID'); return; }
+  const duplicate = keys.some(key => seen.has(key));
+  for (const key of keys) seen.add(key);
+  while (seen.size > 10000) seen.delete(seen.values().next().value);
+  if (duplicate) return;
+  status = 'TikFinity gift received';
+  recordGift(gift);
+  // The direct source handles event identity above. The shared pipeline plans and delivers the reward.
+  processGift(gift, false);
+}
+
+function connectTikFinity() {
+  if (giftSource !== 'tikfinity' || connection || retryConnection) return;
+  giftSourceStatus = 'connecting';
+  const socket = new WebSocket('ws://127.0.0.1:21213/');
+  connection = socket;
+  const timeout = setTimeout(retry, 5000);
+  function retry() {
+    if (connection !== socket) return;
+    connection = undefined;
+    clearTimeout(timeout);
+    giftSourceStatus = 'waiting';
+    status = 'Waiting for TikFinity Desktop';
+    if (!waitingLogged) log('TikFinity Desktop unavailable. Retrying the local gift feed.');
+    waitingLogged = true;
+    socket.close();
+    retryConnection = setTimeout(() => {
+      retryConnection = undefined;
+      connectTikFinity();
+    }, 3000);
+    retryConnection.unref();
+  }
+  socket.addEventListener('open', () => {
+    if (connection !== socket) return;
+    clearTimeout(timeout);
+    waitingLogged = false;
+    giftSourceStatus = 'connected';
+    status = 'TikFinity connected';
+    log('TikFinity Desktop gift feed connected.');
   });
-  if(connection!==ws)throw Error('TikFinity disconnected');
-  status='TikFinity connected';log('TikFinity local socket connected. Connect TikFinity to your LIVE to receive gifts.');
- }catch(e){if(connection===ws)connection=null;status='Disconnected';try{ws?.close();}catch{}throw e;}finally{clearTimeout(timer);busy=false;}
+  socket.addEventListener('message', event => {
+    if (connection !== socket || giftSourceStatus !== 'connected' || typeof event.data !== 'string' || event.data.length > 262144) return;
+    try {
+      const packet = JSON.parse(event.data);
+      if (packet?.event === 'gift' && packet.data && typeof packet.data === 'object' && !Array.isArray(packet.data)) acceptTikFinityGift(packet.data);
+    } catch (error) { log('TikFinity event error: ' + error.message); }
+  });
+  socket.addEventListener('close', retry);
+  socket.addEventListener('error', retry);
 }
 async function rcon(command="ListPlayers"){
   const host=process.env.RCON_HOST,port=Number(process.env.RCON_PORT),password=process.env.RCON_PASSWORD;
@@ -88,7 +152,7 @@ if (validId(String(settings.playerId ?? ''))) {
   log('Custom rules target not configured; set Specimen Implant ID before reward previews');
 }
 
-const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(obj));};try{if(req.headers.host!==`localhost:${port}`&&req.headers.host!==`127.0.0.1:${port}`)return json(403,{error:'Local only'});if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(fs.readFileSync('public/index.html'));}if(req.method==='GET'&&req.url==='/state'){expire();return json(200,{status,catalog,logs,armed,pending:pending.length,autoEnabled,active:active?{source:active.source,mode:active.mode}:null,bridgeOnline:Date.now()-lastBridge<5000,rewardPending:rewards.length,settings,giftRcon:giftRcon.state(),customRules:customRules.state()});}if(req.method==='POST'&&req.url==='/bridge/gift'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){await bridge(req);return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/auto-off'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){autoEnabled=false;log('Automatic console mode stopped by bridge');return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/claim'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){lastBridge=Date.now();const mode=req.headers['x-mode']==='auto'?'auto':'manual';const job=claim(mode);res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','X-Job-Id':job?.id||'','X-Auto-Enabled':armed&&autoEnabled?'1':'0'});return res.end(job?.cmd||'');}if(req.method==='POST'&&req.url==='/bridge/check'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();return json(active?.id===req.headers['x-job-id']&&armed&&autoEnabled?200:409,{ok:active?.id===req.headers['x-job-id']&&armed&&autoEnabled});}if(req.method==='POST'&&req.url==='/bridge/ack'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();const id=req.headers['x-job-id'], outcome=req.headers['x-outcome'];if(!active||active.id!==id||!['submitted','typed','failed','cancelled'].includes(outcome))return json(409,{error:'Unknown or expired claim'});log('Spawn '+outcome+': '+active.source+(outcome==='submitted'?' (verify creature in game)':outcome==='typed'?' (manual Enter required)':''));if(outcome==='failed'||outcome==='cancelled')autoEnabled=false;active=null;return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/next'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(autoEnabled||active)return json(409,{error:'Use v0.7 console bridge'});pending=pending.filter(x=>Date.now()-x.at<120000);const job=pending.shift();res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});if(job)log('Spawn command handed to local bridge: '+job.source+' (verify spawn in game)');return res.end(job?job.cmd:'');}if(req.method!=='POST'||req.headers['x-ice-pack']!=='1'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin))return json(403,{error:'Local dashboard only'});if(req.url==='/custom-rules-reload'){
+const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(obj));};try{if(req.headers.host!==`localhost:${port}`&&req.headers.host!==`127.0.0.1:${port}`)return json(403,{error:'Local only'});if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(fs.readFileSync('public/index.html'));}if(req.method==='GET'&&req.url==='/state'){expire();return json(200,{status,giftSource,giftSourceStatus,catalog,logs,armed,pending:pending.length,autoEnabled,active:active?{source:active.source,mode:active.mode}:null,bridgeOnline:Date.now()-lastBridge<5000,rewardPending:rewards.length,settings,giftRcon:giftRcon.state(),customRules:customRules.state()});}if(req.method==='POST'&&req.url==='/bridge/gift'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(giftSource!=='streamerbot')return json(409,{error:'TikFinity direct is the active gift source'});await bridge(req);return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/auto-off'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){autoEnabled=false;log('Automatic console mode stopped by bridge');return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/claim'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){lastBridge=Date.now();const mode=req.headers['x-mode']==='auto'?'auto':'manual';const job=claim(mode);res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','X-Job-Id':job?.id||'','X-Auto-Enabled':armed&&autoEnabled?'1':'0'});return res.end(job?.cmd||'');}if(req.method==='POST'&&req.url==='/bridge/check'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();return json(active?.id===req.headers['x-job-id']&&armed&&autoEnabled?200:409,{ok:active?.id===req.headers['x-job-id']&&armed&&autoEnabled});}if(req.method==='POST'&&req.url==='/bridge/ack'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();const id=req.headers['x-job-id'], outcome=req.headers['x-outcome'];if(!active||active.id!==id||!['submitted','typed','failed','cancelled'].includes(outcome))return json(409,{error:'Unknown or expired claim'});log('Spawn '+outcome+': '+active.source+(outcome==='submitted'?' (verify creature in game)':outcome==='typed'?' (manual Enter required)':''));if(outcome==='failed'||outcome==='cancelled')autoEnabled=false;active=null;return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/next'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(autoEnabled||active)return json(409,{error:'Use v0.7 console bridge'});pending=pending.filter(x=>Date.now()-x.at<120000);const job=pending.shift();res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});if(job)log('Spawn command handed to local bridge: '+job.source+' (verify spawn in game)');return res.end(job?job.cmd:'');}if(req.method!=='POST'||req.headers['x-ice-pack']!=='1'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin))return json(403,{error:'Local dashboard only'});if(req.url==='/custom-rules-reload'){
   return json(200,{ok:true,customRules:customRules.reload()});
 }else if(req.url==='/custom-rules-config'){
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2048)throw Error('Payload too large');}
@@ -130,7 +194,7 @@ const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.w
   return json(200,{ok:true,giftRcon:giftRcon.state()});
 }else if(req.url==='/gift-rcon-simulate'){
   return json(200,{ok:true,giftRcon:giftRcon.simulate()});
-}else if(req.url==='/connect')throw Error('Direct TikFinity disabled to prevent duplicate gifts. Use Streamer.bot bridge.');else if(req.url==='/refresh')await refresh();else if(req.url==='/rcon')await rcon();else if(req.url==='/broadcast-test')await rcon('Broadcast Ice Pack ARK connection test');else if(req.url==='/arm'){if(giftRcon.mode==='live'||customRules.mode==='live')throw Error('Disable all live gift RCON before arming legacy rules');armed=true;log('Gift rules armed: one action per received gift event');}else if(req.url==='/auto-enable'){if(!armed)throw Error('Arm gift rules first');autoEnabled=true;log('Automatic console mode permitted; enable F9 in ARK');}else if(req.url==='/auto-disable'){autoEnabled=false;log('Automatic console mode disabled');}else if(req.url==='/disarm'){armed=false;autoEnabled=false;pending=[];rewards=[];log('Disarmed; pending commands cleared; in-flight command cannot be recalled');}else if(req.url==='/dodo-test')enqueueDodo('Manual test');else if(req.url==='/icepack-spawn-test'){
+}else if(req.url==='/connect')throw Error('Choose the gift source in Operations Center and restart Companion.');else if(req.url==='/refresh')await refresh();else if(req.url==='/rcon')await rcon();else if(req.url==='/broadcast-test')await rcon('Broadcast Ice Pack ARK connection test');else if(req.url==='/arm'){if(giftRcon.mode==='live'||customRules.mode==='live')throw Error('Disable all live gift RCON before arming legacy rules');armed=true;log('Gift rules armed: one action per received gift event');}else if(req.url==='/auto-enable'){if(!armed)throw Error('Arm gift rules first');autoEnabled=true;log('Automatic console mode permitted; enable F9 in ARK');}else if(req.url==='/auto-disable'){autoEnabled=false;log('Automatic console mode disabled');}else if(req.url==='/disarm'){armed=false;autoEnabled=false;pending=[];rewards=[];log('Disarmed; pending commands cleared; in-flight command cannot be recalled');}else if(req.url==='/dodo-test')enqueueDodo('Manual test');else if(req.url==='/icepack-spawn-test'){
   // Separate manual-only feature; does not arm or consume gift rules.
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2048)throw Error('Spawn payload too large');}
   const input=JSON.parse(raw);const cmd=buildIcePackSpawnCommand(input);
@@ -154,4 +218,4 @@ const previousSettings=settings;
 if(idInput && idInput!==customRules.playerId)customRules.configure({playerId:idInput});
 settings={playerId:idInput,rules};
 try{persist();}catch(error){settings=previousSettings;throw error;}
-log('Rules saved; target player ID preserved');}else if(req.url==='/rule-test'){let data='';for await(const chunk of req){data+=chunk;if(data.length>4096)throw Error('Payload too large');}queueRule(validate(JSON.parse(data)),'Manual rule test',true);}else if(req.url==='/simulate')ingest({giftId:999999,giftName:'Demo gift',diamondCount:50,repeatCount:2,uniqueId:'Test viewer'},true);else return json(404,{error:'Not found'});json(200,{ok:true});}catch(e){log('Error: '+e.message);json(400,{error:e.message});}}).listen(port,'127.0.0.1',()=>console.log('Ice Pack dashboard: http://localhost:3210'));
+log('Rules saved; target player ID preserved');}else if(req.url==='/rule-test'){let data='';for await(const chunk of req){data+=chunk;if(data.length>4096)throw Error('Payload too large');}queueRule(validate(JSON.parse(data)),'Manual rule test',true);}else if(req.url==='/simulate')ingest({giftId:999999,giftName:'Demo gift',diamondCount:50,repeatCount:2,uniqueId:'Test viewer'},true);else return json(404,{error:'Not found'});json(200,{ok:true});}catch(e){log('Error: '+e.message);json(400,{error:e.message});}}).listen(port,'127.0.0.1',()=>{console.log('Ice Pack dashboard: http://localhost:3210');connectTikFinity();});
