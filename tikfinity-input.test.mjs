@@ -16,6 +16,11 @@ const post = (endpoint, body) => fetch(`${origin}/${endpoint}`, {
 const forward = () => fetch(`${origin}/bridge/gift`, {
   method: 'POST', headers: { 'X-Ice-Pack': '1' }, body: new URLSearchParams({ giftId: '5655', giftName: 'Rose', coins: '1' }),
 });
+const testAction = (origin = 'https://tikfinity.zerody.one') => fetch('http://127.0.0.1:8832/api/features/actions/exec', {
+  method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ categoryId: 'icepack-test', actionId: 'armed-gift', context: { eventType: 'test' } }),
+});
+const arm = () => post('tikfinity-test-arm', { gift: 'Rose', confirmation: 'ARM TIKFINITY TEST' });
 
 async function until(check) {
   for (let attempt = 0; attempt < 120; attempt++) {
@@ -81,8 +86,13 @@ test('one input at a time, single and completed streak rewards, and no duplicate
   server = new WebSocketServer({ host: '127.0.0.1', port: 21213 });
   const [first] = await once(server, 'connection');
   await until(async () => (await state()).giftSourceStatus === 'connected');
+  const appInfo = await fetch('http://127.0.0.1:8832/api/app/info', { headers: { Origin: 'https://tikfinity.zerody.one' } });
+  assert.equal(appInfo.headers.get('Access-Control-Allow-Origin'), 'https://tikfinity.zerody.one');
+  assert.equal((await appInfo.json()).data.name, 'Ice Pack Companion');
+  assert.equal((await testAction()).status, 400);
   assert.equal((await post('custom-rules-reload', {})).status, 200);
   assert.equal((await post('custom-rules-mode', { mode: 'live', confirmation: 'ENABLE LIVE CUSTOM RULES' })).status, 200);
+  assert.equal((await arm()).status, 400);
   gift(first, { giftType: 1, msgId: '100', groupId: '90', repeatCount: 1, repeatEnd: false });
   gift(first, { giftType: 1, msgId: '101', groupId: '90', repeatCount: 2, repeatEnd: false });
   await wait(100);
@@ -108,6 +118,16 @@ test('one input at a time, single and completed streak rewards, and no duplicate
   assert.equal(commands.length, 2);
   for (const command of commands) assert.match(command, /^GiveItemToPlayer 1 .* 5 0 0$/);
   assert.equal((await forward()).status, 409);
+
+  assert.equal((await post('custom-rules-mode', { mode: 'off' })).status, 200);
+  assert.equal((await arm()).status, 200);
+  assert.equal((await testAction('https://unrelated.example')).status, 403);
+  const attempts = await Promise.all([testAction(), testAction()]);
+  assert.deepEqual(attempts.map(response => response.status).sort(), [200, 400]);
+  await until(async () => (await state()).giftTest.state === 'sent');
+  const afterTest = (await readFile(log, 'utf8')).trim().split('\n').map(row => JSON.parse(row));
+  assert.deepEqual(afterTest, [...commands, commands[0]]);
+  assert.equal((await state()).customRules.mode, 'off');
   await stopEngine();
 
   start();

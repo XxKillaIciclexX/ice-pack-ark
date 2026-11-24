@@ -6,6 +6,8 @@ Open TikFinity Desktop on the same PC as the engine and connect it to your TikTo
 
 Direct mode receives completed streaks and single gifts. The engine deduplicates their event IDs during the session and refuses Streamer.bot gift forwarding while direct mode is active. Streams can still use Streamer.bot for unrelated actions. Select **Use Streamer.bot** and restart Companion to switch ARK back to that source. [TikFinity Event API](https://tikfinity.zerody.one/)
 
+To test with the Event Simulator, attach a **Third Party Action** named **Ice Pack Companion → Send armed test gift** to the test gift event. In Operations Center, stop Custom Rules, select **Arm TikFinity test gift**, and choose the enabled rule to send. TikFinity discovers the action on local port `8832`. Trigger the action within two minutes and verify the one-command reward in ARK. **Check test status** shows whether the engine sent it.
+
 
 ## Multiple dinosaurs in custom gift rules
 
