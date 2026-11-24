@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -16,7 +17,7 @@ const post = (endpoint, body) => fetch(`${origin}/${endpoint}`, {
 const forward = () => fetch(`${origin}/bridge/gift`, {
   method: 'POST', headers: { 'X-Ice-Pack': '1' }, body: new URLSearchParams({ giftId: '5655', giftName: 'Rose', coins: '1' }),
 });
-const testAction = (origin = 'https://tikfinity.zerody.one') => fetch('http://127.0.0.1:8832/api/features/actions/exec', {
+const testAction = (origin = 'https://app.tikfinity.com') => fetch('http://127.0.0.1:8832/api/features/actions/exec', {
   method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
   body: JSON.stringify({ categoryId: 'icepack-test', actionId: 'armed-gift', context: { eventType: 'test' } }),
 });
@@ -35,7 +36,7 @@ test('one input at a time, single and completed streak rewards, and no duplicate
   const kit = join(root, 'kit');
   const log = join(root, 'rcon.ndjson');
   const stub = join(root, 'node_modules', 'rcon-client');
-  let engine, server;
+  let engine, server, occupiedPort;
   async function stopEngine() {
     if (!engine || engine.exitCode !== null || engine.signalCode !== null) return;
     const done = once(engine, 'exit');
@@ -48,6 +49,7 @@ test('one input at a time, single and completed streak rewards, and no duplicate
       for (const socket of server.clients) socket.terminate();
       await new Promise(resolve => server.close(resolve));
     }
+    if (occupiedPort?.listening) await new Promise(resolve => occupiedPort.close(resolve));
     await rm(root, { recursive: true, force: true });
   });
   for (const name of ['server.mjs', 'engine.mjs', 'icepack-custom-rules.mjs', 'icepack-config-engine.mjs', 'icepack-gift-rcon.mjs', 'icepack-spawn-rcon.mjs']) {
@@ -86,9 +88,21 @@ test('one input at a time, single and completed streak rewards, and no duplicate
   server = new WebSocketServer({ host: '127.0.0.1', port: 21213 });
   const [first] = await once(server, 'connection');
   await until(async () => (await state()).giftSourceStatus === 'connected');
-  const appInfo = await fetch('http://127.0.0.1:8832/api/app/info', { headers: { Origin: 'https://tikfinity.zerody.one' } });
-  assert.equal(appInfo.headers.get('Access-Control-Allow-Origin'), 'https://tikfinity.zerody.one');
-  assert.equal((await appInfo.json()).data.name, 'Ice Pack Companion');
+  for (const origin of ['https://app.tikfinity.com', 'https://tikfinity.zerody.one']) {
+    const appInfo = await fetch('http://127.0.0.1:8832/api/app/info', { headers: { Origin: origin } });
+    assert.equal(appInfo.status, 200);
+    assert.equal(appInfo.headers.get('Access-Control-Allow-Origin'), origin);
+    assert.equal((await appInfo.json()).data.name, 'Ice Pack Companion');
+  }
+  const preflight = await fetch('http://127.0.0.1:8832/api/features/actions/exec', {
+    method: 'OPTIONS', headers: {
+      Origin: 'https://app.tikfinity.com', 'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'content-type', 'Access-Control-Request-Private-Network': 'true',
+    },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), 'https://app.tikfinity.com');
+  assert.equal(preflight.headers.get('Access-Control-Allow-Private-Network'), 'true');
   assert.equal((await testAction()).status, 400);
   assert.equal((await post('custom-rules-reload', {})).status, 200);
   assert.equal((await post('custom-rules-mode', { mode: 'live', confirmation: 'ENABLE LIVE CUSTOM RULES' })).status, 200);
@@ -129,6 +143,16 @@ test('one input at a time, single and completed streak rewards, and no duplicate
   assert.deepEqual(afterTest, [...commands, commands[0]]);
   assert.equal((await state()).customRules.mode, 'off');
   await stopEngine();
+
+  occupiedPort = createServer().listen(8832, '127.0.0.1');
+  await once(occupiedPort, 'listening');
+  start('tikfinity');
+  await until(async () => (await state()).giftTest.message.includes('Port 8832 is in use'));
+  const unavailable = await arm();
+  assert.equal(unavailable.status, 400);
+  assert.match((await unavailable.json()).error, /Port 8832 is in use/);
+  await stopEngine();
+  await new Promise(resolve => occupiedPort.close(resolve));
 
   start();
   await until(async () => (await state()).giftSource === 'streamerbot');

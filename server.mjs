@@ -12,7 +12,7 @@ let status = giftSource === 'tikfinity' ? 'Waiting for TikFinity Desktop' : 'Str
 let armed=false, pending=[], rewards=[], running=false;
 let autoEnabled=false, active=null, lastBridge=0;
 let liveSpawnBusy=false, lastLiveSpawn=0;
-let testActionServer, armedGiftTest, giftTestBusy = false;
+let testActionServer, testActionServerError, armedGiftTest, giftTestBusy = false;
 let giftTest = { state: 'off', message: 'Arm a TikFinity test in Operations Center.' };
 function expire(){pending=pending.filter(x=>Date.now()-x.at<120000);if(active&&Date.now()-active.claimed>15000){log("Spawn delivery uncertain (ack timeout): "+active.source+"; not retried");active=null;autoEnabled=false;}}
 function claim(mode){expire();if(active||!pending.length||mode==='auto'&&(!armed||!autoEnabled))return null;active={...pending.shift(),id:randomUUID(),claimed:Date.now(),mode};log("Spawn claimed ("+mode+"): "+active.source);return active;}
@@ -149,7 +149,7 @@ function planGiftTest(input) {
 }
 
 function armGiftTest(input) {
-  if (!testActionServer?.listening) throw Error('Select direct TikFinity and check that its local test server can start on port 8832.');
+  if (!testActionServer?.listening) throw Error(currentGiftTest().message);
   if (input?.confirmation !== 'ARM TIKFINITY TEST') throw Error('Confirm before arming the TikFinity test.');
   assertGiftTestIdle();
   disarmGiftTest();
@@ -161,6 +161,16 @@ function armGiftTest(input) {
 }
 
 function currentGiftTest() {
+  if (giftSource !== 'tikfinity') {
+    return { state: 'off', message: 'Select direct TikFinity and restart Companion to use its simulator.' };
+  }
+  if (!testActionServer?.listening) {
+    const message = testActionServerError === 'EADDRINUSE'
+      ? 'Port 8832 is in use by another app. Close that app, then restart Companion.'
+      : testActionServerError ? `The TikFinity test listener could not start on port 8832 (${testActionServerError}).`
+        : 'Companion is starting the TikFinity test listener on port 8832.';
+    return { state: 'unavailable', message };
+  }
   if (armedGiftTest && armedGiftTest.expiresAt <= Date.now()) {
     armedGiftTest = undefined;
     giftTest = { state: 'off', message: 'The TikFinity test expired. Arm it again in Operations Center.' };
@@ -204,7 +214,7 @@ async function sendGiftTest({ name, command }) {
 }
 
 function startTikFinityTestServer() {
-  const origins = new Set(['https://tikfinity.zerody.one', 'https://tikfinity.com', 'https://www.tikfinity.com']);
+  const origins = new Set(['https://app.tikfinity.com', 'https://tikfinity.zerody.one', 'https://tikfinity.com', 'https://www.tikfinity.com']);
   const categoryId = 'icepack-test', actionId = 'armed-gift';
   testActionServer = http.createServer(async (req, res) => {
     const origin = req.headers.origin;
@@ -223,7 +233,8 @@ function startTikFinityTestServer() {
       res.setHeader('Vary', 'Origin');
     }
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-    const url = new URL(req.url, 'http://127.0.0.1:8832');
+    const url = URL.parse(req.url, 'http://127.0.0.1:8832');
+    if (!url) return send(400, { message: 'Invalid TikFinity action URL.' });
     if (req.method === 'GET' && url.pathname === '/api/app/info') return send(200, { data: { name: 'Ice Pack Companion', version: '1.0', author: 'Northpath' } });
     if (req.method === 'GET' && url.pathname === '/api/features/categories') return send(200, { data: [{ categoryId, categoryName: 'Ice Pack Companion' }] });
     if (req.method === 'GET' && url.pathname === '/api/features/actions') {
@@ -240,7 +251,10 @@ function startTikFinityTestServer() {
     }
     return send(404, { message: 'Unknown TikFinity action endpoint.' });
   });
-  testActionServer.on('error', error => log(`TikFinity test server unavailable: ${error.code ?? error.message}`));
+  testActionServer.on('error', error => {
+    testActionServerError = error.code ?? 'unknown error';
+    log(`TikFinity test server unavailable: ${testActionServerError}`);
+  });
   testActionServer.listen(8832, '127.0.0.1');
 }
 async function rcon(command="ListPlayers"){
