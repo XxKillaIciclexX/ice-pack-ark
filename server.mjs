@@ -153,6 +153,14 @@ function armGiftTest(input) {
   if (input?.confirmation !== 'ARM TIKFINITY TEST') throw Error('Confirm before arming the TikFinity test.');
   assertGiftTestIdle();
   disarmGiftTest();
+  if (input.hostedToken !== undefined) {
+    if (typeof input.hostedToken !== 'string' || !/^[a-f0-9]{64}$/.test(input.hostedToken)) {
+      throw Error('Arm a hosted test from Windows Operations Center.');
+    }
+    armedGiftTest = { name: 'Rose', hostedToken: input.hostedToken, expiresAt: Date.now() + 120000 };
+    giftTest = { state: 'armed', message: 'Hosted Rose armed. Trigger the TikFinity action within two minutes.' };
+    return giftTest;
+  }
   customRules.reload();
   const plan = planGiftTest(input.gift);
   armedGiftTest = { ...plan, input: input.gift, expiresAt: Date.now() + 120000 };
@@ -190,26 +198,43 @@ function claimGiftTest() {
   assertGiftTestIdle();
   const plan = armedGiftTest;
   disarmGiftTest();
-  try {
-    customRules.reload();
-    if (planGiftTest(plan.input).command !== plan.command) throw Error('The rule changed. Arm the test again.');
-  } catch (error) {
-    giftTest = { state: 'failed', message: error.message };
-    throw Error(giftTest.message);
+  if (!plan.hostedToken) {
+    try {
+      customRules.reload();
+      if (planGiftTest(plan.input).command !== plan.command) throw Error('The rule changed. Arm the test again.');
+    } catch (error) {
+      giftTest = { state: 'failed', message: error.message };
+      throw Error(giftTest.message);
+    }
   }
   giftTestBusy = true;
   return plan;
 }
 
-async function sendGiftTest({ name, command }) {
+async function sendGiftTest({ name, command, hostedToken }) {
   giftTest = { state: 'sending', message: `Sending the ${name} test reward.` };
   try {
-    await rcon(command);
-    giftTest = { state: 'sent', message: `${name} test reward sent. Verify it in ARK.` };
+    if (hostedToken) {
+      const response = await fetch('http://127.0.0.1:3212/hosted-rose-test', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + hostedToken },
+        signal: AbortSignal.timeout(30000), redirect: 'error',
+      });
+      const result = response.ok ? await response.json() : null;
+      if (!['sent', 'blocked', 'unconfirmed'].includes(result?.state) || typeof result.message !== 'string') {
+        throw Error('Hosted test status unavailable.');
+      }
+      giftTest = { state: result.state, message: result.message.slice(0, 180) };
+    } else {
+      await rcon(command);
+      giftTest = { state: 'sent', message: `${name} test reward sent. Verify it in ARK.` };
+    }
     log(giftTest.message);
   } catch (error) {
-    giftTest = { state: 'failed', message: `The ${name} test failed. Check the engine Event log.` };
-    log(`TikFinity test error: ${error.message}`);
+    if (hostedToken) giftTest = { state: 'unconfirmed', message: 'Hosted Rose delivery is unconfirmed. Check ARK and the owner’s delivery history.' };
+    else {
+      giftTest = { state: 'failed', message: `The ${name} test failed. Check the engine Event log.` };
+      log(`TikFinity test error: ${error.message}`);
+    }
   } finally { giftTestBusy = false; }
 }
 
@@ -299,7 +324,7 @@ if (validId(String(settings.playerId ?? ''))) {
   log('Custom rules target not configured; set Specimen Implant ID before reward previews');
 }
 
-const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(obj));};try{if(req.headers.host!==`localhost:${port}`&&req.headers.host!==`127.0.0.1:${port}`)return json(403,{error:'Local only'});if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(fs.readFileSync('public/index.html'));}if(req.method==='GET'&&req.url==='/state'){expire();return json(200,{status,giftSource,giftSourceStatus,giftTest:currentGiftTest(),catalog,logs,armed,pending:pending.length,autoEnabled,active:active?{source:active.source,mode:active.mode}:null,bridgeOnline:Date.now()-lastBridge<5000,rewardPending:rewards.length,settings,giftRcon:giftRcon.state(),customRules:customRules.state()});}if(req.method==='POST'&&req.url==='/bridge/gift'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(giftSource!=='streamerbot')return json(409,{error:'TikFinity direct is the active gift source'});await bridge(req);return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/auto-off'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){autoEnabled=false;log('Automatic console mode stopped by bridge');return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/claim'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){lastBridge=Date.now();const mode=req.headers['x-mode']==='auto'?'auto':'manual';const job=claim(mode);res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','X-Job-Id':job?.id||'','X-Auto-Enabled':armed&&autoEnabled?'1':'0'});return res.end(job?.cmd||'');}if(req.method==='POST'&&req.url==='/bridge/check'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();return json(active?.id===req.headers['x-job-id']&&armed&&autoEnabled?200:409,{ok:active?.id===req.headers['x-job-id']&&armed&&autoEnabled});}if(req.method==='POST'&&req.url==='/bridge/ack'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();const id=req.headers['x-job-id'], outcome=req.headers['x-outcome'];if(!active||active.id!==id||!['submitted','typed','failed','cancelled'].includes(outcome))return json(409,{error:'Unknown or expired claim'});log('Spawn '+outcome+': '+active.source+(outcome==='submitted'?' (verify creature in game)':outcome==='typed'?' (manual Enter required)':''));if(outcome==='failed'||outcome==='cancelled')autoEnabled=false;active=null;return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/next'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(autoEnabled||active)return json(409,{error:'Use v0.7 console bridge'});pending=pending.filter(x=>Date.now()-x.at<120000);const job=pending.shift();res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});if(job)log('Spawn command handed to local bridge: '+job.source+' (verify spawn in game)');return res.end(job?job.cmd:'');}if(req.method!=='POST'||req.headers['x-ice-pack']!=='1'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin))return json(403,{error:'Local dashboard only'});if(req.url==='/tikfinity-test-arm'){
+const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(obj));};try{if(req.headers.host!==`localhost:${port}`&&req.headers.host!==`127.0.0.1:${port}`)return json(403,{error:'Local only'});if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(fs.readFileSync('public/index.html'));}if(req.method==='GET'&&req.url==='/state'){expire();return json(200,{status,giftSource,giftSourceStatus,hostedGiftTest:true,giftTest:currentGiftTest(),catalog,logs,armed,pending:pending.length,autoEnabled,active:active?{source:active.source,mode:active.mode}:null,bridgeOnline:Date.now()-lastBridge<5000,rewardPending:rewards.length,settings,giftRcon:giftRcon.state(),customRules:customRules.state()});}if(req.method==='POST'&&req.url==='/bridge/gift'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(giftSource!=='streamerbot')return json(409,{error:'TikFinity direct is the active gift source'});await bridge(req);return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/auto-off'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){autoEnabled=false;log('Automatic console mode stopped by bridge');return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/claim'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){lastBridge=Date.now();const mode=req.headers['x-mode']==='auto'?'auto':'manual';const job=claim(mode);res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','X-Job-Id':job?.id||'','X-Auto-Enabled':armed&&autoEnabled?'1':'0'});return res.end(job?.cmd||'');}if(req.method==='POST'&&req.url==='/bridge/check'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();return json(active?.id===req.headers['x-job-id']&&armed&&autoEnabled?200:409,{ok:active?.id===req.headers['x-job-id']&&armed&&autoEnabled});}if(req.method==='POST'&&req.url==='/bridge/ack'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();const id=req.headers['x-job-id'], outcome=req.headers['x-outcome'];if(!active||active.id!==id||!['submitted','typed','failed','cancelled'].includes(outcome))return json(409,{error:'Unknown or expired claim'});log('Spawn '+outcome+': '+active.source+(outcome==='submitted'?' (verify creature in game)':outcome==='typed'?' (manual Enter required)':''));if(outcome==='failed'||outcome==='cancelled')autoEnabled=false;active=null;return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/next'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(autoEnabled||active)return json(409,{error:'Use v0.7 console bridge'});pending=pending.filter(x=>Date.now()-x.at<120000);const job=pending.shift();res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});if(job)log('Spawn command handed to local bridge: '+job.source+' (verify spawn in game)');return res.end(job?job.cmd:'');}if(req.method!=='POST'||req.headers['x-ice-pack']!=='1'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin))return json(403,{error:'Local dashboard only'});if(req.url==='/tikfinity-test-arm'){
   return json(200,{ok:true,giftTest:armGiftTest(await readTestJson(req))});
 }else if(req.url==='/custom-rules-reload'){
   return json(200,{ok:true,customRules:customRules.reload()});
