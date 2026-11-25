@@ -15,6 +15,7 @@ let liveSpawnBusy=false, lastLiveSpawn=0;
 let testActionServer, testActionServerError, armedGiftTest, giftTestBusy = false;
 let giftTest = { state: 'off', message: 'Arm a TikFinity test in Operations Center.' };
 let hostedLiveToken, hostedLiveBusy = false;
+let hostedGiftIds = new Set();
 let hostedLiveMessage = 'Hosted Live Rewards are off.';
 function expire(){pending=pending.filter(x=>Date.now()-x.at<120000);if(active&&Date.now()-active.claimed>15000){log("Spawn delivery uncertain (ack timeout): "+active.source+"; not retried");active=null;autoEnabled=false;}}
 function claim(mode){expire();if(active||!pending.length||mode==='auto'&&(!armed||!autoEnabled))return null;active={...pending.shift(),id:randomUUID(),claimed:Date.now(),mode};log("Spawn claimed ("+mode+"): "+active.source);return active;}
@@ -73,7 +74,7 @@ function acceptTikFinityGift(data) {
   status = 'TikFinity gift received';
   recordGift(gift);
   if (hostedLiveToken) {
-    if (gift.id === '5655') void forwardHostedRose(keys[0]);
+    if (hostedGiftIds.has(gift.id)) void forwardHostedGift(gift.id, keys[0]);
     return;
   }
   // The direct source handles event identity above. The shared pipeline plans and delivers the reward.
@@ -131,18 +132,26 @@ async function readTestJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-async function forwardHostedRose(eventKey) {
+function readHostedGiftIds(giftIds) {
+  if (!Array.isArray(giftIds) || giftIds.length > 500 ||
+      giftIds.some(id => typeof id !== 'string' || !/^[1-9][0-9]{0,19}$/.test(id))) {
+    throw Error('Invalid hosted Gift Rule IDs.');
+  }
+  return new Set(giftIds);
+}
+
+async function forwardHostedGift(giftId, eventKey) {
   if (hostedLiveBusy) {
-    log('Live Rose skipped while the previous hosted reward is in progress.');
+    log('Gift skipped while the previous hosted reward is in progress.');
     return;
   }
   const token = hostedLiveToken;
   hostedLiveBusy = true;
-  hostedLiveMessage = 'Sending a live Rose reward.';
+  hostedLiveMessage = 'Sending a hosted gift reward.';
   try {
-    const response = await fetch('http://127.0.0.1:3212/hosted-rose-gift', {
+    const response = await fetch('http://127.0.0.1:3212/hosted-live-gift', {
       method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventHash: createHash('sha256').update(eventKey).digest('hex') }),
+      body: JSON.stringify({ giftId, eventHash: createHash('sha256').update(eventKey).digest('hex') }),
       signal: AbortSignal.timeout(35000), redirect: 'error',
     });
     const result = response.ok ? await response.json() : null;
@@ -155,7 +164,7 @@ async function forwardHostedRose(eventKey) {
     }
     log(result.message.slice(0, 180));
   } catch {
-    const message = 'Live Rose delivery is unconfirmed. Check ARK and the owner’s history.';
+    const message = 'Hosted gift delivery is unconfirmed. Check ARK and the owner’s history.';
     if (hostedLiveToken === token) hostedLiveMessage = message;
     log(message);
   } finally { hostedLiveBusy = false; }
@@ -366,15 +375,24 @@ if (validId(String(settings.playerId ?? ''))) {
 
 const port=3210;http.createServer(async(req,res)=>{const json=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(obj));};try{if(req.headers.host!==`localhost:${port}`&&req.headers.host!==`127.0.0.1:${port}`)return json(403,{error:'Local only'});if(req.method==='GET'&&req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(fs.readFileSync('public/index.html'));}if(req.method==='GET'&&req.url==='/state'){expire();return json(200,{status,giftSource,giftSourceStatus,hostedGiftTest:true,hostedLive:hostedLiveStatus(),giftTest:currentGiftTest(),catalog,logs,armed,pending:pending.length,autoEnabled,active:active?{source:active.source,mode:active.mode}:null,bridgeOnline:Date.now()-lastBridge<5000,rewardPending:rewards.length,settings,giftRcon:giftRcon.state(),customRules:customRules.state()});}if(req.method==='POST'&&req.url==='/bridge/gift'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(giftSource!=='streamerbot')return json(409,{error:'TikFinity direct is the active gift source'});await bridge(req);return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/auto-off'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){autoEnabled=false;log('Automatic console mode stopped by bridge');return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/claim'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){lastBridge=Date.now();const mode=req.headers['x-mode']==='auto'?'auto':'manual';const job=claim(mode);res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','X-Job-Id':job?.id||'','X-Auto-Enabled':armed&&autoEnabled?'1':'0'});return res.end(job?.cmd||'');}if(req.method==='POST'&&req.url==='/bridge/check'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();return json(active?.id===req.headers['x-job-id']&&armed&&autoEnabled?200:409,{ok:active?.id===req.headers['x-job-id']&&armed&&autoEnabled});}if(req.method==='POST'&&req.url==='/bridge/ack'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){expire();const id=req.headers['x-job-id'], outcome=req.headers['x-outcome'];if(!active||active.id!==id||!['submitted','typed','failed','cancelled'].includes(outcome))return json(409,{error:'Unknown or expired claim'});log('Spawn '+outcome+': '+active.source+(outcome==='submitted'?' (verify creature in game)':outcome==='typed'?' (manual Enter required)':''));if(outcome==='failed'||outcome==='cancelled')autoEnabled=false;active=null;return json(200,{ok:true});}if(req.method==='POST'&&req.url==='/bridge/next'&&req.headers['x-ice-pack']==='1'&&!req.headers.origin){if(autoEnabled||active)return json(409,{error:'Use v0.7 console bridge'});pending=pending.filter(x=>Date.now()-x.at<120000);const job=pending.shift();res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});if(job)log('Spawn command handed to local bridge: '+job.source+' (verify spawn in game)');return res.end(job?job.cmd:'');}if(req.method!=='POST'||req.headers['x-ice-pack']!=='1'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin))return json(403,{error:'Local dashboard only'});if(req.url==='/hosted-live-start'){
   if (giftSource !== 'tikfinity' || giftSourceStatus !== 'connected') throw Error('Connect TikFinity Desktop first.');
-  const { token } = await readTestJson(req);
+  const { token, giftIds } = await readTestJson(req);
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw Error('Start hosted Live Rewards in Operations Center.');
   assertGiftTestIdle();
+  const mapped = readHostedGiftIds(giftIds);
+  if (!mapped.size) throw Error('Save a supported hosted Gift Rule first.');
   disarmGiftTest();
   hostedLiveToken = token;
-  hostedLiveMessage = 'Hosted Live Rewards are on. Listening for Rose gifts.';
+  hostedGiftIds = mapped;
+  hostedLiveMessage = 'Hosted Live Rewards are on. Listening for your saved Gift Rules.';
+  return json(200, { ok: true, hostedLive: hostedLiveStatus() });
+}else if(req.url==='/hosted-live-gifts'){
+  const { token, giftIds } = await readTestJson(req);
+  if (!hostedLiveToken || hostedLiveToken !== token) throw Error('Hosted Live Rewards session ended.');
+  hostedGiftIds = readHostedGiftIds(giftIds);
   return json(200, { ok: true, hostedLive: hostedLiveStatus() });
 }else if(req.url==='/hosted-live-stop'){
   hostedLiveToken = undefined;
+  hostedGiftIds.clear();
   hostedLiveMessage = 'Hosted Live Rewards are off.';
   return json(200, { ok: true, hostedLive: hostedLiveStatus() });
 }else if(req.url==='/tikfinity-test-arm'){
